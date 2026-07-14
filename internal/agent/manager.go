@@ -101,20 +101,184 @@ func (m *Manager) Reconnect() error {
 func (m *Manager) handleNotification(method string, params json.RawMessage) {
 	switch method {
 	case "session/update":
-		var n struct {
-			SessionID string            `json:"sessionId"`
-			Update    acp.SessionUpdate `json:"update"`
+		var envelope struct {
+			SessionID string          `json:"sessionId"`
+			Update    json.RawMessage `json:"update"`
 		}
-		if err := json.Unmarshal(params, &n); err != nil {
+		if err := json.Unmarshal(params, &envelope); err != nil {
+			log.Printf("[agent] Failed to unmarshal session/update: %v", err)
 			return
 		}
-		event := m.convertUpdate(&n.Update)
+		event := m.parseUpdate(envelope.Update)
+		if event == nil {
+			return
+		}
 		runtime.EventsEmit(m.ctx, "session:update", map[string]any{
-			"sessionId": n.SessionID,
+			"sessionId": envelope.SessionID,
 			"event":     event,
 		})
 	}
 }
+
+// parseUpdate decodes a session/update payload based on its `sessionUpdate`
+// discriminator. Zed's ACP protocol uses a discriminated-union wire format
+// where fields for tool_call / tool_call_update are inlined at the top level
+// (not nested under `toolCall`), and agent_thought_chunk carries text inside
+// a `content` ContentBlock rather than a bare `thought` string. The acp
+// package's SessionUpdate struct doesn't match this layout, so we decode
+// each variant directly here.
+func (m *Manager) parseUpdate(raw json.RawMessage) *UpdateEvent {
+	var disc struct {
+		SessionUpdate string `json:"sessionUpdate"`
+	}
+	if err := json.Unmarshal(raw, &disc); err != nil {
+		return nil
+	}
+	e := &UpdateEvent{Type: disc.SessionUpdate}
+
+	switch disc.SessionUpdate {
+	case "user_message_chunk", "agent_message_chunk":
+		var u struct {
+			Content   acp.ContentBlock `json:"content"`
+			MessageID *string          `json:"messageId,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		e.Content = &ContentChunk{Type: u.Content.Type}
+		if u.MessageID != nil {
+			e.Content.MessageID = *u.MessageID
+		}
+		switch u.Content.Type {
+		case "text":
+			e.Content.Content = u.Content.Text
+		case "image", "audio":
+			e.Content.Data = u.Content.Data
+			e.Content.Mime = u.Content.MimeType
+		}
+	case "agent_thought_chunk":
+		// Two possible wire formats: a bare `thought` string (older) or a
+		// `content` ContentBlock (Zed's spec). Handle both.
+		var u struct {
+			Thought string           `json:"thought,omitempty"`
+			Content acp.ContentBlock `json:"content,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		text := u.Thought
+		if text == "" {
+			text = u.Content.Text
+		}
+		e.Content = &ContentChunk{Type: "text", Thought: text}
+	case "tool_call":
+		var u acp.ToolCall
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.ToolCallID == "" {
+			// Fall back to nested form in case some agent sends it that way.
+			var wrap struct {
+				ToolCall *acp.ToolCall `json:"toolCall"`
+			}
+			if json.Unmarshal(raw, &wrap) == nil && wrap.ToolCall != nil {
+				u = *wrap.ToolCall
+			}
+		}
+		tc := u
+		e.Tool = &tc
+	case "tool_call_update":
+		var u acp.ToolCallUpdate
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.ToolCallID == "" {
+			var wrap struct {
+				Update *acp.ToolCallUpdate `json:"toolCallUpdate"`
+			}
+			if json.Unmarshal(raw, &wrap) == nil && wrap.Update != nil {
+				u = *wrap.Update
+			}
+		}
+		tc := &acp.ToolCall{
+			ToolCallID: u.ToolCallID,
+			Content:    u.Content,
+			Locations:  u.Locations,
+		}
+		if u.Title != nil {
+			tc.Title = *u.Title
+		}
+		if u.Kind != nil {
+			tc.Kind = *u.Kind
+		}
+		if u.Status != nil {
+			tc.Status = *u.Status
+		}
+		e.Tool = tc
+	case "plan":
+		var u struct {
+			Entries []acp.PlanEntry `json:"entries,omitempty"`
+			Plan    *acp.Plan       `json:"plan,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.Plan != nil {
+			e.Plan = u.Plan
+		} else if len(u.Entries) > 0 {
+			e.Plan = &acp.Plan{Entries: u.Entries}
+		}
+	case "usage_update":
+		var u struct {
+			Usage *acp.UsageUpdate `json:"usage,omitempty"`
+			Size  *uint64          `json:"size,omitempty"`
+			Used  *uint64          `json:"used,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.Usage != nil {
+			e.Usage = u.Usage
+		} else if u.Size != nil || u.Used != nil {
+			e.Usage = &acp.UsageUpdate{}
+			if u.Size != nil {
+				e.Usage.Size = *u.Size
+			}
+			if u.Used != nil {
+				e.Usage.Used = *u.Used
+			}
+		}
+	case "current_mode_update":
+		var u struct {
+			CurrentMode   *acp.CurrentModeUpdate `json:"currentMode,omitempty"`
+			CurrentModeID *acp.SessionModeID     `json:"currentModeId,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.CurrentMode != nil {
+			e.Mode = u.CurrentMode
+		} else if u.CurrentModeID != nil {
+			e.Mode = &acp.CurrentModeUpdate{CurrentModeID: *u.CurrentModeID}
+		}
+	case "session_info_update":
+		var u struct {
+			SessionInfo *acp.SessionInfoUpdate `json:"sessionInfo,omitempty"`
+			Title       *string                `json:"title,omitempty"`
+			UpdatedAt   *string                `json:"updatedAt,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil
+		}
+		if u.SessionInfo != nil {
+			e.Info = u.SessionInfo
+		} else if u.Title != nil || u.UpdatedAt != nil {
+			e.Info = &acp.SessionInfoUpdate{Title: u.Title, UpdatedAt: u.UpdatedAt}
+		}
+	}
+	return e
+}
+
 
 // isConnectionError checks if the error indicates a dead connection.
 func isConnectionError(err error) bool {
@@ -239,48 +403,6 @@ func (m *Manager) ensureConnected() error {
 	return m.connectLocked(m.command)
 }
 
-func (m *Manager) convertUpdate(u *acp.SessionUpdate) *UpdateEvent {
-	e := &UpdateEvent{Type: u.SessionUpdate}
-
-	switch u.SessionUpdate {
-	case "user_message_chunk", "agent_message_chunk":
-		e.Content = &ContentChunk{
-			Type: u.Content.Type,
-		}
-		if u.MessageID != nil {
-			e.Content.MessageID = string(*u.MessageID)
-		}
-		if u.Content.Type == "text" {
-			e.Content.Content = u.Content.Text
-		} else if u.Content.Type == "image" || u.Content.Type == "audio" {
-			e.Content.Data = u.Content.Data
-			e.Content.Mime = u.Content.MimeType
-		}
-	case "agent_thought_chunk":
-		e.Content = &ContentChunk{Thought: u.Thought}
-	case "tool_call":
-		if u.ToolCall != nil {
-			e.Tool = u.ToolCall
-		}
-	case "tool_call_update":
-		if u.ToolCallUpdate != nil {
-			e.Tool = &acp.ToolCall{
-				ToolCallID: u.ToolCallUpdate.ToolCallID,
-				Status:     *u.ToolCallUpdate.Status,
-			}
-		}
-	case "plan":
-		e.Plan = u.Plan
-	case "usage_update":
-		e.Usage = u.Usage
-	case "current_mode_update":
-		e.Mode = u.CurrentMode
-	case "session_info_update":
-		e.Info = u.SessionInfo
-	}
-	return e
-}
-
 func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
 		log.Printf("[agent] LoadSession: id=%q cwd=%q", sessionID, cwd)
@@ -366,12 +488,17 @@ func (m *Manager) CloseSession(sessionID string) error {
 }
 
 func (m *Manager) DeleteSession(sessionID string) error {
-	return m.runWithRetry(func(client *acp.Client) error {
+	log.Printf("[agent] DeleteSession: id=%q", sessionID)
+	err := m.runWithRetry(func(client *acp.Client) error {
 		_, err := client.DeleteSession(&acp.DeleteSessionRequest{
 			SessionID: acp.SessionID(sessionID),
 		})
 		return err
 	})
+	if err != nil {
+		log.Printf("[agent] DeleteSession failed: %v", err)
+	}
+	return err
 }
 
 func (m *Manager) Disconnect() error {

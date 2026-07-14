@@ -14,10 +14,11 @@ import {
   X,
 } from 'lucide-react'
 
-export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, connected }) {
+export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, connected, onSessionClosed, onSessionDeleted }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [actionError, setActionError] = useState(null)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -58,21 +59,33 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
 
   const handleClose = async (sessionId, e) => {
     e.stopPropagation()
+    setActionError(null)
     try {
       await CloseSession(sessionId)
       await fetchSessions()
+      onSessionClosed?.(sessionId)
     } catch (err) {
       console.error('Close session error:', err)
+      setActionError(`Close failed: ${err?.toString() || err}`)
     }
   }
 
   const handleDelete = async (sessionId, e) => {
     e.stopPropagation()
+    setActionError(null)
+    // Optimistic removal so the row disappears immediately; if the agent
+    // rejects the delete we restore the list and surface the error.
+    const snapshot = sessions
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
     try {
       await DeleteSession(sessionId)
-      await fetchSessions()
+      onSessionDeleted?.(sessionId)
+      // Refresh from server so title/updatedAt on remaining rows stays fresh.
+      fetchSessions()
     } catch (err) {
       console.error('Delete session error:', err)
+      setSessions(snapshot)
+      setActionError(`Delete failed: ${err?.toString() || err}`)
     }
   }
 
@@ -94,6 +107,18 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
         </Button>
       </div>
 
+      {actionError && (
+        <div className="shrink-0 px-3 py-2 text-[10px] text-destructive bg-destructive/10 border-b flex items-start gap-1">
+          <span className="flex-1 break-words">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="shrink-0 opacity-70 hover:opacity-100"
+            aria-label="Dismiss error"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto">
         {!connected ? (
           <div className="py-8 px-3 text-center text-xs text-muted-foreground">

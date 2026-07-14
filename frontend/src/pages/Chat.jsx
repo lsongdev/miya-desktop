@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import SessionList from '@/components/SessionList'
+import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
 import { SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime'
@@ -46,6 +47,7 @@ function ToolCallDisplay({ tool }) {
 }
 
 function ThoughtDisplay({ text }) {
+  if (!text) return null
   return (
     <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/20 rounded-md p-2 my-1 italic border-l-2 border-muted-foreground/20 max-w-full">
       <Brain className="size-3 mt-0.5 shrink-0" />
@@ -120,6 +122,10 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     const cleanup = EventsOn('session:update', (data) => {
       const { sessionId: sid, event } = data
       if (sid !== sessionId) return
+
+      if (event.type === 'agent_thought_chunk' || event.type === 'tool_call' || event.type === 'tool_call_update') {
+        console.log(`[session:update] ${event.type}`, JSON.stringify(event, null, 2))
+      }
 
       setMessages((prev) => {
         const msgs = [...prev]
@@ -209,6 +215,15 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     setStopReason(null)
     setError(null)
 
+    // Optimistic user bubble — most ACP agents don't echo a
+    // user_message_chunk during live prompts (only during session/load
+    // replay), so we render it ourselves. Close any previously streaming
+    // bubble first so the next agent chunk starts a fresh one.
+    setMessages((prev) => [
+      ...prev.map(closeStreaming),
+      { role: 'user', text, streaming: false, tools: [], thoughts: [] },
+    ])
+
     try {
       await SendPrompt(sessionId, text)
     } catch (err) {
@@ -254,13 +269,17 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
             <div className={`flex-1 min-w-0 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div
-                className={`rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-w-[85%] ${
+                className={`rounded-lg px-3 py-2 text-sm break-words [overflow-wrap:anywhere] max-w-[85%] ${
                   msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
                     : 'bg-muted/50'
                 }`}
               >
-                {msg.text}
+                {msg.role === 'user' ? (
+                  msg.text
+                ) : (
+                  <MarkdownContent content={msg.text} />
+                )}
                 {msg.streaming && <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse align-middle" />}
               </div>
 
@@ -342,6 +361,18 @@ export default function Chat() {
     setShouldLoad(false)
   }, [])
 
+  const handleSessionClosed = useCallback((sessionId) => {
+    if (activeSession?.id === sessionId) {
+      setActiveSession(null)
+    }
+  }, [activeSession])
+
+  const handleSessionDeleted = useCallback((sessionId) => {
+    if (activeSession?.id === sessionId) {
+      setActiveSession(null)
+    }
+  }, [activeSession])
+
   return (
     <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
       <div className="w-64 shrink-0 border-r">
@@ -351,6 +382,8 @@ export default function Chat() {
           onNewSession={handleNewSession}
           onRefresh={refreshRef}
           connected={connected}
+          onSessionClosed={handleSessionClosed}
+          onSessionDeleted={handleSessionDeleted}
         />
       </div>
       <div className="flex-1 flex flex-col min-w-0 min-h-0 p-4 overflow-hidden">
