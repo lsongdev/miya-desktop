@@ -5,35 +5,22 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarTrigger,
   SidebarInset,
 } from './components/ui/sidebar';
-import { LayoutDashboard, Info, Settings as SettingsIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { MessageSquare, Settings as SettingsIcon } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
-import Home from './pages/Home';
+import { AgentProvider } from './context/AgentContext';
+import Chat from './pages/Chat';
 import Settings from './pages/Settings';
-import About from './pages/About';
-
-const sidebarGroups = [
-  {
-    label: 'Pages',
-    items: [
-      { title: 'Home', icon: LayoutDashboard, page: 'home' },
-      { title: 'About', icon: Info, page: 'about' },
-    ],
-  },
-];
 
 const pageComponents = {
-  home: Home,
+  chat: Chat,
   settings: Settings,
-  about: About,
 };
 
 function AppSidebar({ activePage, onNavigate }) {
@@ -42,37 +29,33 @@ function AppSidebar({ activePage, onNavigate }) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-              <SidebarMenuButton size="lg">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <LayoutDashboard className="size-4" />
-                </div>
-                <span className="font-semibold">Wails App</span>
-              </SidebarMenuButton>
+            <SidebarMenuButton size="lg">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <MessageSquare className="size-4" />
+              </div>
+              <span className="font-semibold">Miya</span>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        {sidebarGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      isActive={activePage === item.page}
-                      onClick={() => onNavigate(item.page)}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activePage === 'chat'}
+                  onClick={() => onNavigate('chat')}
+                  tooltip="Chat"
+                >
+                  <MessageSquare />
+                  <span>Chat</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
@@ -81,6 +64,7 @@ function AppSidebar({ activePage, onNavigate }) {
             <SidebarMenuButton
               isActive={activePage === 'settings'}
               onClick={() => onNavigate('settings')}
+              tooltip="Settings"
             >
               <SettingsIcon />
               <span>Settings</span>
@@ -93,24 +77,21 @@ function AppSidebar({ activePage, onNavigate }) {
 }
 
 export default function App() {
-  const [activePage, setActivePage] = useState('home');
+  const [activePage, setActivePage] = useState('chat');
   const ActivePage = pageComponents[activePage];
 
   return (
     <ThemeProvider>
-      <SidebarProvider>
-        <AppSidebar activePage={activePage} onNavigate={setActivePage} />
-        <SidebarInset>
-          <header className="flex h-14 shrink-0 items-center justify-between border-b pl-3 pr-4" style={{ WebkitAppRegion: 'drag' }}>
-            <div style={{ WebkitAppRegion: 'no-drag' }}>
-              <SidebarTrigger />
-            </div>
-          </header>
-          <main className="flex flex-1 flex-col overflow-auto p-6" style={{ WebkitAppRegion: 'no-drag' }}>
-            {ActivePage && <ActivePage />}
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
+      <AgentProvider>
+        <SidebarProvider defaultOpen={false}>
+          <AppSidebar activePage={activePage} onNavigate={setActivePage} />
+          <SidebarInset className="min-w-0 overflow-hidden">
+            <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
+              {ActivePage && <ActivePage />}
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </AgentProvider>
     </ThemeProvider>
   );
 }
