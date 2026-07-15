@@ -98,15 +98,7 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 	err := channelapp.Run(ctx, channelapp.Options{
 		Config: cfg,
 		NewClient: func(cfg *miyaconfig.Config) (*acp.Client, string, error) {
-			endpoint, err := firstEnabledAgent(cfg)
-			if err != nil {
-				return nil, "", err
-			}
-			client, err := agentclient.NewForEndpoint(endpoint, s.loadConfig)
-			if err != nil {
-				return nil, "", err
-			}
-			return client, endpoint.ID, nil
+			return firstAvailableAgentClient(cfg, s.loadConfig)
 		},
 	})
 	s.mu.Lock()
@@ -126,11 +118,20 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 	done <- err
 }
 
-func firstEnabledAgent(cfg *miyaconfig.Config) (miyaconfig.ACPAgentConfig, error) {
+func firstAvailableAgentClient(cfg *miyaconfig.Config, loadConfig agentclient.ConfigLoader) (*acp.Client, string, error) {
+	var lastErr error
 	for _, endpoint := range cfg.Agents {
-		if endpoint.IsEnabled() {
-			return endpoint, nil
+		if !endpoint.IsEnabled() {
+			continue
 		}
+		client, err := agentclient.NewForEndpoint(endpoint, loadConfig)
+		if err == nil {
+			return client, endpoint.ID, nil
+		}
+		lastErr = err
 	}
-	return miyaconfig.ACPAgentConfig{}, fmt.Errorf("no enabled ACP agent configured")
+	if lastErr != nil {
+		return nil, "", fmt.Errorf("no enabled ACP agent could be connected: %w", lastErr)
+	}
+	return nil, "", fmt.Errorf("no enabled ACP agent configured")
 }
