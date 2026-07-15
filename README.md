@@ -2,9 +2,19 @@
   <img src="build/appicon.png" alt="Miya" width="96" height="96">
 </p>
 
-# Miya Desktop
+<h1 align="center">Miya Desktop</h1>
 
-Miya Desktop is an ACP-native desktop workspace for AI agents. It brings local agent runtimes, external ACP agents, session management, MCP tools, and remote-control channels into a single client built for day-to-day agent work.
+<p align="center">
+  ACP-native desktop workspace for AI agents, local runtimes, external ACP endpoints, MCP tools, and remote-control channels.
+</p>
+
+<p align="center">
+  <a href="https://github.com/lsongdev/miya-desktop/actions/workflows/release.yml"><img src="https://github.com/lsongdev/miya-desktop/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/lsongdev/miya-desktop/releases"><img src="https://img.shields.io/github/v/release/lsongdev/miya-desktop?include_prereleases&label=release" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
+  <img src="https://img.shields.io/badge/Wails-2.12-red" alt="Wails 2.12">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="Platforms">
+</p>
 
 The app embeds the Miya agent runtime and channel gateway directly into the desktop binary, while still keeping ACP as the protocol boundary for external agents such as OpenCode, Codex, Claude-compatible tools, or any other ACP endpoint.
 
