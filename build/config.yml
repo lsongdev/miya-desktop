@@ -1,0 +1,45 @@
+version: "3"
+
+info:
+  companyName: "Lsong"
+  productName: "Miya Desktop"
+  productIdentifier: "dev.lsong.miya.desktop"
+  description: "ACP-native desktop client for AI agents"
+  copyright: "(c) 2026, Lsong"
+  comments: "Miya Desktop Wails v3 spike"
+  version: "0.1.0"
+
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - bin
+      - build/bin
+      - frontend/dist
+      - frontend/node_modules
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+    watched_extension:
+      - "*.go"
+      - "*.js"
+      - "*.jsx"
+      - "*.ts"
+      - "*.tsx"
+      - "*.css"
+    git_ignore: true
+  executes:
+    - cmd: wails3 task frontend:dev
+      type: background
+    - cmd: wails3 task build:backend
+      type: blocking
+    - cmd: wails3 task run:dev
+      type: primary
+
+fileAssociations:
+
+other:

@@ -5,10 +5,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  build: {
-    rollupOptions: {
-      external: ['/wails/runtime.js'],
-    },
+  server: {
+    port: Number(process.env.WAILS_VITE_PORT || 5173),
+    strictPort: true,
   },
   resolve: {
     alias: {
