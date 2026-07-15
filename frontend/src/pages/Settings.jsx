@@ -4,6 +4,7 @@ import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../bindings/wails-app/app'
+import { Events } from '@wailsio/runtime'
 import { NavigationContext } from '../hooks/useNavigate'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
@@ -105,7 +106,14 @@ function channelSummary(channel) {
   if (channel.id === 'telegram') {
     return channel.token ? 'bot token configured' : 'bot token missing'
   }
+  if (channel.id === 'wechat') {
+    return channel.token ? 'authenticated' : 'scan required'
+  }
   return rawToText(channel).replace(/\s+/g, ' ')
+}
+
+function eventPayload(event) {
+  return event?.data ?? event
 }
 
 function ConfigError({ error }) {
@@ -667,7 +675,7 @@ function ChannelsSettings() {
   const [localError, setLocalError] = useState(null)
   const [service, setService] = useState({ running: false })
   const [serviceBusy, setServiceBusy] = useState(false)
-  const [form, setForm] = useState({ id: 'telegram', token: '', json: '{}' })
+  const [form, setForm] = useState({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
 
   useEffect(() => {
     let cancelled = false
@@ -684,14 +692,39 @@ function ChannelsSettings() {
     }
   }, [])
 
-  const reset = () => { setForm({ id: 'telegram', token: '', json: '{}' }); setLocalError(null) }
+  useEffect(() => {
+    const cleanup = Events.On('channel:event', (event) => {
+      try {
+        const payload = eventPayload(event)
+        if (!payload?.channel) return
+        setService((prev) => ({
+          ...(prev || {}),
+          channelEvents: {
+            ...(prev?.channelEvents || {}),
+            [payload.channel]: payload,
+          },
+        }))
+      } catch (err) {
+        console.error('Failed to handle channel event', err)
+      }
+    })
+    return () => cleanup()
+  }, [])
+
+  const reset = () => { setForm({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' }); setLocalError(null) }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (channel) => {
     setAdding(false)
     setEditing(channel.id)
     setLocalError(null)
     const { id, ...value } = channel
-    setForm({ id, token: value.token || '', json: rawToText(value) })
+    setForm({
+      id,
+      token: value.token || '',
+      baseUrl: value.base_url || '',
+      cdnBaseUrl: value.cdn_base_url || '',
+      json: rawToText(value),
+    })
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
   const handleSave = async () => {
@@ -701,6 +734,11 @@ function ChannelsSettings() {
     if (id === 'telegram') {
       if (!form.token.trim()) return
       value = { token: form.token.trim() }
+    } else if (id === 'wechat') {
+      value = {}
+      if (form.token.trim()) value.token = form.token.trim()
+      if (form.baseUrl.trim()) value.base_url = form.baseUrl.trim()
+      if (form.cdnBaseUrl.trim()) value.cdn_base_url = form.cdnBaseUrl.trim()
     } else {
       try {
         value = JSON.parse(form.json || '{}')
@@ -713,10 +751,39 @@ function ChannelsSettings() {
       const channels = { ...(prev.channels || {}) }
       if (editing && editing !== id) delete channels[editing]
       channels[id] = value
-      return { ...prev, channels }
+      return { ...prev, channels, channelsEnabled: id === 'wechat' ? true : prev.channelsEnabled }
     })
+    if (id === 'wechat') {
+      setAdding(false)
+      setEditing(id)
+      await restartChannelsService()
+      return
+    }
     handleCancel()
   }
+
+  const restartChannelsService = async () => {
+    setServiceBusy(true)
+    setLocalError(null)
+    try {
+      if (service.running) {
+        await StopChannelsService()
+      }
+      const next = await StartChannelsService()
+      setService(next)
+      return next
+    } catch (err) {
+      setLocalError(err.toString())
+      try {
+        setService(await ChannelsServiceStatus())
+      } catch {}
+      throw err
+    } finally {
+      setServiceBusy(false)
+    }
+  }
+
+  const wechatEvent = service?.channelEvents?.wechat
   const handleDelete = async (id) => {
     await saveConfig((prev) => {
       const channels = { ...(prev.channels || {}) }
@@ -753,11 +820,49 @@ function ChannelsSettings() {
       </select>
       {form.id === 'telegram' ? (
         <Input value={form.token} onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))} placeholder="Bot token" type="password" className={monoInputClass} />
+      ) : form.id === 'wechat' ? (
+        <div className="space-y-2">
+          <Input value={form.token} onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))} placeholder="Token (optional, filled after QR login)" type="password" className={monoInputClass} />
+          <Input value={form.baseUrl} onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))} placeholder="Base URL (optional)" className={monoInputClass} />
+          <Input value={form.cdnBaseUrl} onChange={(e) => setForm((f) => ({ ...f, cdnBaseUrl: e.target.value }))} placeholder="CDN base URL (optional)" className={monoInputClass} />
+          <div className="rounded-md border bg-muted/20 p-3">
+            <div className="flex items-start gap-3">
+              {wechatEvent?.qrcodeImage ? (
+                <img src={wechatEvent.qrcodeImage} alt="WeChat login QR code" className="size-28 rounded-md border bg-white object-contain p-1" />
+              ) : (
+                <div className="flex size-28 items-center justify-center rounded-md border bg-background text-center text-xs text-muted-foreground">
+                  {serviceBusy ? 'Preparing QR...' : 'Save to start login'}
+                </div>
+              )}
+              <div className="min-w-0 space-y-1 text-xs">
+                <p className="font-medium text-sm">WeChat login</p>
+                <p className="text-muted-foreground">
+                  {wechatEvent?.status === 'confirmed' || wechatEvent?.status === 'authenticated'
+                    ? 'Authenticated'
+                    : wechatEvent?.status === 'scaned'
+                      ? 'Scanned, confirm on your phone'
+                      : wechatEvent?.status === 'expired'
+                        ? 'QR code expired, save again to refresh'
+                        : wechatEvent?.qrcodeImage
+                          ? 'Scan with WeChat to connect'
+                          : service.running
+                            ? 'Waiting for WeChat QR code'
+                            : 'Save this channel to start QR login'}
+                </p>
+                {wechatEvent?.qrcodeUrl && <p className="truncate font-mono text-muted-foreground">{wechatEvent.qrcodeUrl}</p>}
+                {wechatEvent?.error && <p className="text-destructive">{wechatEvent.error}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : (
         <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder="Channel JSON config" className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving || serviceBusy}>
+          {(saving || serviceBusy) && form.id === 'wechat' ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />}
+          {form.id === 'wechat' ? 'Save & Start Login' : 'Save'}
+        </Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
       <ConfigError error={localError} />

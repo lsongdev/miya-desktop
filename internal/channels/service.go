@@ -12,13 +12,25 @@ import (
 
 	"github.com/lsongdev/miya-agents/acp"
 	channelapp "github.com/lsongdev/miya-channels/app"
+	channelpkg "github.com/lsongdev/miya-channels/channels"
 )
 
+type ChannelEvent struct {
+	Channel     string `json:"channel"`
+	Type        string `json:"type"`
+	Status      string `json:"status,omitempty"`
+	QRCode      string `json:"qrcode,omitempty"`
+	QRCodeURL   string `json:"qrcodeUrl,omitempty"`
+	QRCodeImage string `json:"qrcodeImage,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
 type Status struct {
-	Running bool   `json:"running"`
-	Command string `json:"command,omitempty"`
-	PID     int    `json:"pid,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Running       bool                    `json:"running"`
+	Command       string                  `json:"command,omitempty"`
+	PID           int                     `json:"pid,omitempty"`
+	Error         string                  `json:"error,omitempty"`
+	ChannelEvents map[string]ChannelEvent `json:"channelEvents,omitempty"`
 }
 
 type Service struct {
@@ -27,10 +39,14 @@ type Service struct {
 	done       chan error
 	status     Status
 	loadConfig agentclient.ConfigLoader
+	emit       func(string, ...any)
 }
 
-func NewService(loadConfig agentclient.ConfigLoader) *Service {
-	return &Service{loadConfig: loadConfig}
+func NewService(loadConfig agentclient.ConfigLoader, emit func(string, ...any)) *Service {
+	if emit == nil {
+		emit = func(string, ...any) {}
+	}
+	return &Service{loadConfig: loadConfig, emit: emit}
 }
 
 func (s *Service) Status() Status {
@@ -58,7 +74,11 @@ func (s *Service) Start(ctx context.Context) (Status, error) {
 	done := make(chan error, 1)
 	s.cancel = cancel
 	s.done = done
-	s.status = Status{Running: true, Command: "embedded miya-channels"}
+	s.status = Status{
+		Running:       true,
+		Command:       "embedded miya-channels",
+		ChannelEvents: map[string]ChannelEvent{},
+	}
 
 	go s.run(runCtx, cfg, done)
 	return s.status, nil
@@ -100,6 +120,7 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 		NewClient: func(cfg *miyaconfig.Config) (*acp.Client, string, error) {
 			return firstAvailableAgentClient(cfg, s.loadConfig)
 		},
+		OnEvent: s.handleChannelEvent,
 	})
 	s.mu.Lock()
 	if s.done == done {
@@ -116,6 +137,25 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 		log.Printf("[channels] embedded miya-channels exited: %v", err)
 	}
 	done <- err
+}
+
+func (s *Service) handleChannelEvent(event channelpkg.ChannelEvent) {
+	next := ChannelEvent{
+		Channel:     event.Channel,
+		Type:        event.Type,
+		Status:      event.Status,
+		QRCode:      event.QRCode,
+		QRCodeURL:   event.QRCodeURL,
+		QRCodeImage: event.QRCodeImage,
+		Error:       event.Error,
+	}
+	s.mu.Lock()
+	if s.status.ChannelEvents == nil {
+		s.status.ChannelEvents = map[string]ChannelEvent{}
+	}
+	s.status.ChannelEvents[next.Channel] = next
+	s.mu.Unlock()
+	s.emit("channel:event", next)
 }
 
 func firstAvailableAgentClient(cfg *miyaconfig.Config, loadConfig agentclient.ConfigLoader) (*acp.Client, string, error) {

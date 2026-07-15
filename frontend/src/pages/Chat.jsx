@@ -159,11 +159,15 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
   useEffect(() => {
     const cleanup = Events.On('conversation:update', (event) => {
-      const snapshot = event?.data
-      const next = snapshot?.conversation
-      if (next?.acpSessionId !== sessionId) return
-      setConversation(next)
-      if (snapshot.stopReason) setStopReason(snapshot.stopReason)
+      try {
+        const snapshot = event?.data ?? event
+        const next = snapshot?.conversation
+        if (next?.acpSessionId !== sessionId) return
+        setConversation(next)
+        if (snapshot.stopReason) setStopReason(snapshot.stopReason)
+      } catch (err) {
+        console.error('Failed to handle conversation update', err)
+      }
     })
 
     return () => {

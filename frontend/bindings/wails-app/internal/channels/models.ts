@@ -5,11 +5,42 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class ChannelEvent {
+    "channel": string;
+    "type": string;
+    "status"?: string;
+    "qrcode"?: string;
+    "qrcodeUrl"?: string;
+    "qrcodeImage"?: string;
+    "error"?: string;
+
+    /** Creates a new ChannelEvent instance. */
+    constructor($$source: Partial<ChannelEvent> = {}) {
+        if (!("channel" in $$source)) {
+            this["channel"] = "";
+        }
+        if (!("type" in $$source)) {
+            this["type"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChannelEvent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChannelEvent {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ChannelEvent($$parsedSource as Partial<ChannelEvent>);
+    }
+}
+
 export class Status {
     "running": boolean;
     "command"?: string;
     "pid"?: number;
     "error"?: string;
+    "channelEvents"?: { [_ in string]?: ChannelEvent };
 
     /** Creates a new Status instance. */
     constructor($$source: Partial<Status> = {}) {
@@ -24,7 +55,15 @@ export class Status {
      * Creates a new Status instance from a string or object.
      */
     static createFrom($$source: any = {}): Status {
+        const $$createField4_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("channelEvents" in $$parsedSource) {
+            $$parsedSource["channelEvents"] = $$createField4_0($$parsedSource["channelEvents"]);
+        }
         return new Status($$parsedSource as Partial<Status>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = ChannelEvent.createFrom;
+const $$createType1 = $Create.Map($Create.Any, $$createType0);

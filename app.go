@@ -62,7 +62,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.config = miyaconfig.NewService()
 	a.manager = agent.New(ctx, a.config.Load, a.emit)
-	a.channels = channelservice.NewService(a.config.Load)
+	a.channels = channelservice.NewService(a.config.Load, a.emit)
 	cfg, err := a.config.Load()
 	if err != nil {
 		log.Printf("[channels] config load failed during auto-start: %v", err)
