@@ -726,8 +726,6 @@ function ChannelsSettings() {
             baseUrl: payload.baseUrl || prev.baseUrl,
             cdnBaseUrl: payload.cdnBaseUrl || prev.cdnBaseUrl,
           }))
-          setAdding(false)
-          setEditing('wechat')
         }
         if (payload.channel === 'wechat' && ['error', 'expired', 'cancelled'].includes(payload.status)) {
           setLoginBusy(false)
@@ -761,6 +759,29 @@ function ChannelsSettings() {
     wechatLoginStartedRef.current = false
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const restartServiceIfRunning = async () => {
+    if (!service.running) return
+    setServiceBusy(true)
+    try {
+      await StopChannelsService()
+      const next = await StartChannelsService()
+      setService((prev) => ({
+        ...next,
+        channelEvents: {
+          ...(prev?.channelEvents || {}),
+          ...(next?.channelEvents || {}),
+        },
+      }))
+    } catch (err) {
+      setLocalError(err.toString())
+      try {
+        setService(await ChannelsServiceStatus())
+      } catch {}
+      throw err
+    } finally {
+      setServiceBusy(false)
+    }
+  }
   const handleSave = async () => {
     const id = form.id.trim()
     if (!id) return
@@ -787,9 +808,12 @@ function ChannelsSettings() {
       channels[id] = value
       return { ...prev, channels }
     })
-    if (id !== 'wechat') {
-      handleCancel()
+    try {
+      await restartServiceIfRunning()
+    } catch {
+      return
     }
+    handleCancel()
   }
 
   const wechatValueFromForm = (source = form) => {
@@ -813,6 +837,7 @@ function ChannelsSettings() {
   }
 
   const wechatEvent = service?.channelEvents?.wechat
+  const wechatAuthenticated = form.id === 'wechat' && Boolean(form.token || wechatEvent?.status === 'authenticated')
 
   useEffect(() => {
     if (form.id !== 'wechat') {
@@ -830,6 +855,9 @@ function ChannelsSettings() {
       delete channels[id]
       return { ...prev, channels }
     })
+    try {
+      await restartServiceIfRunning()
+    } catch {}
   }
   const toggleChannelsEnabled = async (enabled) => {
     await saveConfig((prev) => ({ ...prev, channelsEnabled: enabled }))
@@ -871,8 +899,12 @@ function ChannelsSettings() {
           <Input value={form.cdnBaseUrl} onChange={(e) => setForm((f) => ({ ...f, cdnBaseUrl: e.target.value }))} placeholder="CDN base URL (optional)" className={monoInputClass} />
           <div className="rounded-md border bg-muted/20 p-3">
             <div className="flex items-start gap-3">
-              {wechatEvent?.qrcodeImage ? (
+              {!wechatAuthenticated && wechatEvent?.qrcodeImage ? (
                 <img src={wechatEvent.qrcodeImage} alt="WeChat login QR code" className="size-28 rounded-md border bg-white object-contain p-1" />
+              ) : wechatAuthenticated ? (
+                <div className="flex size-28 items-center justify-center rounded-md border bg-background text-center text-xs font-medium text-green-600">
+                  Authenticated
+                </div>
               ) : (
                 <div className="flex size-28 items-center justify-center rounded-md border bg-background text-center text-xs text-muted-foreground">
                   {loginBusy ? 'Preparing QR...' : 'Select WeChat to generate QR'}
@@ -881,8 +913,8 @@ function ChannelsSettings() {
               <div className="min-w-0 space-y-1 text-xs">
                 <p className="font-medium text-sm">WeChat login</p>
                 <p className="text-muted-foreground">
-                  {wechatEvent?.status === 'confirmed' || wechatEvent?.status === 'authenticated'
-                    ? 'Authenticated'
+                  {wechatAuthenticated
+                    ? 'Authenticated. Review the fields, then save.'
                     : wechatEvent?.status === 'scaned'
                       ? 'Scanned, confirm on your phone'
                       : wechatEvent?.status === 'expired'
@@ -891,7 +923,7 @@ function ChannelsSettings() {
                           ? 'Scan with WeChat to connect'
                           : 'Select WeChat to generate a login QR code'}
                 </p>
-                {wechatEvent?.qrcodeUrl && <p className="truncate font-mono text-muted-foreground">{wechatEvent.qrcodeUrl}</p>}
+                {!wechatAuthenticated && wechatEvent?.qrcodeUrl && <p className="truncate font-mono text-muted-foreground">{wechatEvent.qrcodeUrl}</p>}
                 {wechatEvent?.error && <p className="text-destructive">{wechatEvent.error}</p>}
               </div>
             </div>
