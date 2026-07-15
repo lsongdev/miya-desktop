@@ -6,6 +6,10 @@ export function CancelSession(arg1) {
   return window['go']['main']['App']['CancelSession'](arg1);
 }
 
+export function ChannelsServiceStatus() {
+  return window['go']['main']['App']['ChannelsServiceStatus']();
+}
+
 export function CloseSession(arg1) {
   return window['go']['main']['App']['CloseSession'](arg1);
 }
@@ -68,4 +72,12 @@ export function SaveMiyaConfig(arg1) {
 
 export function SendPrompt(arg1, arg2) {
   return window['go']['main']['App']['SendPrompt'](arg1, arg2);
+}
+
+export function StartChannelsService() {
+  return window['go']['main']['App']['StartChannelsService']();
+}
+
+export function StopChannelsService() {
+  return window['go']['main']['App']['StopChannelsService']();
 }

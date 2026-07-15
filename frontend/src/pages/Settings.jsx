@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { ChannelsServiceStatus, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Palette, Info,
-  Plus, Trash2, Pencil, Check, X, Key, Radio,
+  Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2,
 } from 'lucide-react'
 
 const settingsItems = [
@@ -497,7 +498,24 @@ function ChannelsSettings() {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [localError, setLocalError] = useState(null)
+  const [service, setService] = useState({ running: false })
+  const [serviceBusy, setServiceBusy] = useState(false)
   const [form, setForm] = useState({ id: '', json: '{}' })
+
+  useEffect(() => {
+    let cancelled = false
+    const refresh = () => {
+      ChannelsServiceStatus()
+        .then((status) => { if (!cancelled) setService(status) })
+        .catch((err) => { if (!cancelled) setService({ running: false, error: err.toString() }) })
+    }
+    refresh()
+    const timer = setInterval(refresh, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
 
   const reset = () => { setForm({ id: '', json: '{}' }); setLocalError(null) }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
@@ -535,6 +553,22 @@ function ChannelsSettings() {
     })
   }
 
+  const toggleService = async () => {
+    setServiceBusy(true)
+    setLocalError(null)
+    try {
+      const next = service.running ? await StopChannelsService() : await StartChannelsService()
+      setService(next)
+    } catch (err) {
+      setLocalError(err.toString())
+      try {
+        setService(await ChannelsServiceStatus())
+      } catch {}
+    } finally {
+      setServiceBusy(false)
+    }
+  }
+
   const editor = (
     <div className="space-y-2">
       <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Channel ID, e.g. telegram" className={inputClass} autoFocus />
@@ -554,9 +588,24 @@ function ChannelsSettings() {
           <h2 className="text-lg font-semibold">Channels</h2>
           <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
         </div>
-        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Channel
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant={service.running ? 'outline' : 'default'} onClick={toggleService} disabled={serviceBusy}>
+            {serviceBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+            {service.running ? 'Stop Service' : 'Start Service'}
+          </Button>
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+            <Plus className="size-3.5 mr-1" /> Add Channel
+          </Button>
+        </div>
+      </div>
+      <div className="rounded-lg border bg-card px-4 py-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className={`size-2 rounded-full ${service.running ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+          <span className="font-medium">{service.running ? 'Service running' : 'Service stopped'}</span>
+          {service.pid ? <span className="text-muted-foreground">PID {service.pid}</span> : null}
+        </div>
+        {service.command && <p className="mt-1 truncate font-mono text-muted-foreground">{service.command}</p>}
+        {service.error && <p className="mt-1 text-destructive">{service.error}</p>}
       </div>
       <div className="rounded-lg border bg-card divide-y">
         {channels.map((channel) => (
