@@ -6,14 +6,16 @@ import (
 	"os"
 
 	"wails-app/internal/agent"
+	channelservice "wails-app/internal/channels"
 	miyaconfig "wails-app/internal/config"
 )
 
 // App struct
 type App struct {
-	ctx     context.Context
-	manager *agent.Manager
-	config  *miyaconfig.Service
+	ctx      context.Context
+	manager  *agent.Manager
+	config   *miyaconfig.Service
+	channels *channelservice.Service
 }
 
 // NewApp creates a new App application struct
@@ -27,6 +29,16 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.manager = agent.New(ctx)
 	a.config = miyaconfig.NewService()
+	a.channels = channelservice.NewService()
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	if a.channels != nil {
+		_, _ = a.channels.Stop()
+	}
+	if a.manager != nil {
+		_ = a.manager.Disconnect()
+	}
 }
 
 // Greet returns a greeting for the given name
@@ -104,4 +116,16 @@ func (a *App) LoadMiyaConfig() (*miyaconfig.Config, error) {
 
 func (a *App) SaveMiyaConfig(cfg *miyaconfig.Config) error {
 	return a.config.Save(cfg)
+}
+
+func (a *App) ChannelsServiceStatus() channelservice.Status {
+	return a.channels.Status()
+}
+
+func (a *App) StartChannelsService() (channelservice.Status, error) {
+	return a.channels.Start(a.ctx)
+}
+
+func (a *App) StopChannelsService() (channelservice.Status, error) {
+	return a.channels.Stop()
 }
