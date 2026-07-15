@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useAgent } from '../context/AgentContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Palette, Info,
-  Loader2, Plus, Trash2, Pencil, Check, X, Key, Radio,
+  Plus, Trash2, Pencil, Check, X, Key, Radio,
 } from 'lucide-react'
 
 const settingsItems = [
@@ -65,57 +64,10 @@ function ConfigError({ error }) {
 }
 
 function GeneralSettings() {
-  const { agents, selectedAgent, connected, connecting, agentInfo, error, connect, disconnect } = useAgent()
-
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">General</h2>
-      <p className="text-sm text-muted-foreground">View the current ACP connection state.</p>
-
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">{selectedAgent?.name || 'No enabled agent'}</p>
-            <p className="text-xs text-muted-foreground">{agents.length} enabled agent{agents.length === 1 ? '' : 's'}</p>
-          </div>
-          {connected ? (
-            <Button variant="outline" onClick={disconnect} disabled={connecting}>
-              Disconnect
-            </Button>
-          ) : (
-            <Button onClick={() => connect()} disabled={connecting || !selectedAgent}>
-              {connecting ? <Loader2 className="size-4 animate-spin" /> : 'Connect'}
-            </Button>
-          )}
-        </div>
-
-        {selectedAgent && (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="font-medium text-muted-foreground">Command:</span>
-            <code className="flex-1 rounded bg-muted px-2 py-1 font-mono text-xs">
-              {selectedAgent.command}
-            </code>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`size-2 rounded-full ${connected ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
-            <span className="text-sm">
-              {connected
-                ? `Connected${agentInfo?.name ? `: ${agentInfo.name}` : ''}`
-                : 'Disconnected'}
-            </span>
-          </div>
-        </div>
-
-        {error && (
-          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
-        )}
-      </div>
-
+      <p className="text-sm text-muted-foreground">Application preferences.</p>
     </div>
   )
 }
