@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
-import { ConnectAgent, ConnectConfiguredAgent, InitializeAgent, DisconnectAgent } from '../../wailsjs/go/main/App'
+import { ConnectAgent, ConnectConfiguredAgent, InitializeAgent, DisconnectAgent } from '../../bindings/wails-app/app'
 import { useMiyaConfig } from './MiyaConfigContext'
 
 const AgentContext = createContext(null)

@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
+import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../bindings/wails-app/app'
 import { NavigationContext } from '../hooks/useNavigate'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,

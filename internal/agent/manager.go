@@ -14,8 +14,9 @@ import (
 	"wails-app/internal/conversation"
 
 	"github.com/lsongdev/miya-agents/acp"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+type EventEmitter func(name string, data ...any)
 
 type Session struct {
 	ID           string `json:"id"`
@@ -49,10 +50,20 @@ type Manager struct {
 	initName   string
 	initVer    string
 	store      *conversation.Store
+	emit       EventEmitter
 }
 
-func New(ctx context.Context, loadConfig agentclient.ConfigLoader) *Manager {
-	return &Manager{ctx: ctx, loadConfig: loadConfig, store: conversation.NewStore()}
+func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmitter) *Manager {
+	if emit == nil {
+		emit = func(string, ...any) {}
+	}
+	return &Manager{ctx: ctx, loadConfig: loadConfig, store: conversation.NewStore(), emit: emit}
+}
+
+func (m *Manager) emitEvent(name string, data any) {
+	if m.emit != nil {
+		m.emit(name, data)
+	}
 }
 
 func (m *Manager) Connect(command string) error {
@@ -128,11 +139,11 @@ func (m *Manager) handleNotification(method string, params json.RawMessage) {
 			return
 		}
 		snapshot := m.store.ApplyACPEvent(envelope.SessionID, event)
-		runtime.EventsEmit(m.ctx, "session:update", map[string]any{
+		m.emitEvent("session:update", map[string]any{
 			"sessionId": envelope.SessionID,
 			"event":     event,
 		})
-		runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+		m.emitEvent("conversation:update", snapshot)
 	}
 }
 
@@ -290,7 +301,7 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
 		log.Printf("[agent] LoadSession: id=%q cwd=%q", sessionID, cwd)
 		snapshot := m.store.RegisterSession(sessionID, cwd)
-		runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+		m.emitEvent("conversation:update", snapshot)
 		_, err := client.LoadSession(&acp.LoadSessionRequest{
 			SessionID:  acp.SessionID(sessionID),
 			Cwd:        cwd,
@@ -300,7 +311,7 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 			return fmt.Errorf("agent: load session: %w", err)
 		}
 		if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
-			runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+			m.emitEvent("conversation:update", snapshot)
 		}
 		return nil
 	})
@@ -320,7 +331,7 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 		log.Printf("[agent] NewSession created: id=%q", sessionID)
 		session = &Session{ID: sessionID, Cwd: cwd}
 		snapshot := m.store.RegisterSession(sessionID, cwd)
-		runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+		m.emitEvent("conversation:update", snapshot)
 		return nil
 	})
 	return session, err
@@ -329,7 +340,7 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 func (m *Manager) Prompt(sessionID, message string) error {
 	log.Printf("[agent] Prompt: session=%q message=%q", sessionID, message)
 	snapshot := m.store.AddLocalUserMessage(sessionID, message)
-	runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+	m.emitEvent("conversation:update", snapshot)
 
 	client, err := m.clientForLongCall()
 	if err != nil {
@@ -364,7 +375,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 	}
 
 	if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
-		runtime.EventsEmit(m.ctx, "conversation:update", map[string]any{
+		m.emitEvent("conversation:update", map[string]any{
 			"conversation": snapshot.Conversation,
 			"eventType":    snapshot.EventType,
 			"stopReason":   resp.StopReason,

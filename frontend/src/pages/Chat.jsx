@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { CancelSession, DefaultCwd, SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
-import { EventsOn } from '../../wailsjs/runtime'
+import { CancelSession, DefaultCwd, SendPrompt, LoadSession } from '../../bindings/wails-app/app'
+import { Events } from '/wails/runtime.js'
 import {
   Send,
   Square,
@@ -158,7 +158,8 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   }, [conversation?.messages, scrollToBottom])
 
   useEffect(() => {
-    const cleanup = EventsOn('conversation:update', (snapshot) => {
+    const cleanup = Events.On('conversation:update', (event) => {
+      const snapshot = event?.data
       const next = snapshot?.conversation
       if (next?.acpSessionId !== sessionId) return
       setConversation(next)

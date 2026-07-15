@@ -18,12 +18,15 @@ import (
 	"github.com/lsongdev/miya-agents/acp"
 	"github.com/lsongdev/miya-agents/anthropic"
 	"github.com/lsongdev/miya-agents/openai"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // App struct
 type App struct {
-	ctx      context.Context
-	manager  *agent.Manager
+	ctx     context.Context
+	emit    agent.EventEmitter
+	manager *agent.Manager
+
 	config   *miyaconfig.Service
 	channels *channelservice.Service
 }
@@ -40,16 +43,25 @@ func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{}
+func NewApp(emit agent.EventEmitter) *App {
+	return &App{emit: emit}
 }
 
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
+	a.startup(ctx)
+	return nil
+}
+
+func (a *App) ServiceShutdown() error {
+	a.shutdown()
+	return nil
+}
+
+// startup is called when the app starts.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.config = miyaconfig.NewService()
-	a.manager = agent.New(ctx, a.config.Load)
+	a.manager = agent.New(ctx, a.config.Load, a.emit)
 	a.channels = channelservice.NewService(a.config.Load)
 	cfg, err := a.config.Load()
 	if err != nil {
@@ -65,7 +77,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 }
 
-func (a *App) shutdown(ctx context.Context) {
+func (a *App) shutdown() {
 	if a.channels != nil {
 		_, _ = a.channels.Stop()
 	}

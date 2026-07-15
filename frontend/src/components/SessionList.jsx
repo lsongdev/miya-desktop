@@ -6,7 +6,7 @@ import {
   ListAgentSessions,
   CloseSession,
   DeleteSession,
-} from '../../wailsjs/go/main/App'
+} from '../../bindings/wails-app/app'
 import {
   Plus,
   Loader2,

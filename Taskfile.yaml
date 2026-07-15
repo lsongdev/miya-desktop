@@ -1,0 +1,42 @@
+version: "3"
+
+vars:
+  APP_NAME: miya-desktop
+  BIN_DIR: bin
+
+tasks:
+  app:build:
+    summary: Build the Miya Desktop spike binary.
+    cmds:
+      - cd frontend && npm run build
+      - mkdir -p {{.BIN_DIR}}
+      - go build -o {{.BIN_DIR}}/{{.APP_NAME}} .
+
+  build:
+    summary: Build the Miya Desktop spike binary.
+    cmds:
+      - task: app:build
+
+  darwin:build:
+    cmds:
+      - task: app:build
+
+  windows:build:
+    cmds:
+      - task: app:build
+
+  linux:build:
+    cmds:
+      - task: app:build
+
+  run:
+    summary: Run the Miya Desktop spike binary.
+    deps:
+      - app:build
+    cmds:
+      - ./{{.BIN_DIR}}/{{.APP_NAME}}
+
+  dev:
+    summary: Run frontend and backend manually during the v3 spike.
+    cmds:
+      - echo "Run 'npm run dev' in frontend and 'go run .' in the project root while this spike is being finalized."
