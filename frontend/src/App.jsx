@@ -12,11 +12,12 @@ import {
   SidebarProvider,
   SidebarInset,
 } from './components/ui/sidebar';
-import { Bot, MessagesSquare, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { MessagesSquare, Settings as SettingsIcon } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
 import { MiyaConfigProvider } from './context/MiyaConfigContext';
+import miyaIcon from './assets/images/miya-icon.png'
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 
@@ -28,21 +29,21 @@ const pageComponents = {
 function AppSidebar({ activePage, onNavigate }) {
   return (
     <Sidebar collapsible="icon" className="pt-0">
-      <SidebarHeader className="p-1.5">
+      <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="default" className="h-9">
-              <div className="flex aspect-square size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Sparkles className="size-3.5" />
+            <SidebarMenuButton size="lg" className="group-data-[collapsible=icon]:justify-center">
+              <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+                <img src={miyaIcon} alt="" className="size-full object-cover" />
               </div>
-              <span className="font-semibold">Miya</span>
+              <span className="font-semibold">Miya Desktop</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup className="p-1.5">
+        <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -60,7 +61,7 @@ function AppSidebar({ activePage, onNavigate }) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-1.5">
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -68,7 +69,7 @@ function AppSidebar({ activePage, onNavigate }) {
               onClick={() => onNavigate('settings')}
               tooltip="Settings"
             >
-              <SlidersHorizontal />
+              <SettingsIcon />
               <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

@@ -6,8 +6,9 @@ import { Input } from '../components/ui/input'
 import { ChannelsServiceStatus, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
-  Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2,
+  Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
 } from 'lucide-react'
+import miyaIcon from '../assets/images/miya-icon.png'
 
 const settingsItems = [
   { id: 'general', label: 'General', icon: SettingsIcon },
@@ -94,6 +95,14 @@ function Switch({ checked, onChange, disabled, label }) {
         }`}
       />
     </button>
+  )
+}
+
+function GitHubMark({ className = 'size-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d="M12 .5A12 12 0 0 0 8.2 23.9c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.9 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.4-1.3-5.4-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.4 5.9.4.4.8 1.1.8 2.2v3.1c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z" />
+    </svg>
   )
 }
 
@@ -700,25 +709,35 @@ function AboutSettings() {
   return (
     <div className="space-y-4">
       <SectionHeader title="About" description="Product information and runtime scope." />
-      <div className="rounded-lg border bg-card p-5 space-y-4">
-        <div>
-          <p className="text-base font-semibold">Miya Desktop</p>
-          <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+      <div className="rounded-lg border bg-card p-5 space-y-5">
+        <div className="flex items-center gap-4">
+          <img src={miyaIcon} alt="" className="size-14 rounded-xl object-cover" />
+          <div>
+            <p className="text-base font-semibold">Miya Desktop</p>
+            <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+          </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
           Miya Desktop is an ACP-native client for managing agent conversations, local agent runtime profiles,
           MCP tools, and remote-control channels from a single desktop workspace.
         </p>
-        <div className="grid gap-2 text-sm md:grid-cols-2">
-          <div className="rounded-md border bg-background px-3 py-2">
-            <p className="font-medium">Runtime</p>
-            <p className="text-muted-foreground">Embedded miya-agents and miya-channels</p>
-          </div>
-          <div className="rounded-md border bg-background px-3 py-2">
-            <p className="font-medium">Interface</p>
-            <p className="text-muted-foreground">Wails, React, and ACP</p>
-          </div>
+        <div className="space-y-2 text-sm">
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-desktop" target="_blank" rel="noreferrer">
+            <span className="flex items-center gap-2"><GitHubMark /> miya-desktop</span>
+            <ExternalLink className="size-3.5" />
+          </a>
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-agents" target="_blank" rel="noreferrer">
+            <span className="flex items-center gap-2"><GitHubMark /> miya-agents</span>
+            <ExternalLink className="size-3.5" />
+          </a>
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-channels" target="_blank" rel="noreferrer">
+            <span className="flex items-center gap-2"><GitHubMark /> miya-channels</span>
+            <ExternalLink className="size-3.5" />
+          </a>
         </div>
+        <p className="text-xs text-muted-foreground">
+          License: MIT. Copyright © Lsong.
+        </p>
       </div>
     </div>
   )
