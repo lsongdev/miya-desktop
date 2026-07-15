@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"wails-app/internal/acpadapter"
+	"wails-app/internal/agentclient"
 	"wails-app/internal/conversation"
 
 	"github.com/lsongdev/miya-agents/acp"
@@ -37,18 +38,19 @@ type UpdateEvent = acpadapter.Event
 type Conversation = conversation.Conversation
 
 type Manager struct {
-	client    *acp.Client
-	ctx       context.Context
-	mu        sync.Mutex
-	agentInfo *AgentInfo
-	command   string
-	initName  string
-	initVer   string
-	store     *conversation.Store
+	client     *acp.Client
+	ctx        context.Context
+	loadConfig agentclient.ConfigLoader
+	mu         sync.Mutex
+	agentInfo  *AgentInfo
+	command    string
+	initName   string
+	initVer    string
+	store      *conversation.Store
 }
 
-func New(ctx context.Context) *Manager {
-	return &Manager{ctx: ctx, store: conversation.NewStore()}
+func New(ctx context.Context, loadConfig agentclient.ConfigLoader) *Manager {
+	return &Manager{ctx: ctx, loadConfig: loadConfig, store: conversation.NewStore()}
 }
 
 func (m *Manager) Connect(command string) error {
@@ -64,12 +66,7 @@ func (m *Manager) connectLocked(command string) error {
 		m.client = nil
 	}
 
-	parts := strings.Fields(command)
-	if len(parts) == 0 {
-		return fmt.Errorf("agent: empty command")
-	}
-
-	client, err := acp.DialStdio(parts[0], parts[1:]...)
+	client, err := agentclient.NewForCommand(command, m.loadConfig)
 	if err != nil {
 		return fmt.Errorf("agent: dial: %w", err)
 	}

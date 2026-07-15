@@ -7,7 +7,7 @@ const AgentContext = createContext(null)
 const SELECTED_KEY = 'miya-selected-agent'
 
 const DEFAULT_AGENTS = [
-  { id: 'miya', name: 'Miya Agents', type: 'stdio', command: 'miya', args: ['acp'] },
+  { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'] },
 ]
 
 function commandFromAgent(agent) {

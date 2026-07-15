@@ -78,7 +78,7 @@ func (s *Service) Save(cfg *Config) error {
 func defaultConfig() *Config {
 	cfg := &Config{
 		Agents: []ACPAgentConfig{
-			{ID: "miya", Name: "Miya Agents", Enabled: boolPtr(true), Type: "stdio", Command: "miya", Args: []string{"acp"}},
+			{ID: "miya", Name: "Miya Agents", Enabled: boolPtr(true), Type: "builtin", Command: "miya-agent", Args: []string{"acp"}},
 		},
 		Profiles:   map[string]*ProfileConfig{},
 		Providers:  map[string]*ProviderConfig{},
