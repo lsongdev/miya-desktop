@@ -37,6 +37,28 @@ function parseList(value) {
   return value.split(/\s+/).map((s) => s.trim()).filter(Boolean)
 }
 
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function basename(value) {
+  const normalized = value.trim().replace(/\\/g, '/')
+  return normalized.split('/').filter(Boolean).pop() || ''
+}
+
+function uniqueAgentId(form, agents, editing) {
+  if (editing) return editing
+  const base = slugify(form.name || basename(form.command) || 'agent') || 'agent'
+  const used = new Set((agents || []).map((agent) => agent.id).filter(Boolean))
+  if (!used.has(base)) return base
+  let index = 2
+  while (used.has(`${base}-${index}`)) index += 1
+  return `${base}-${index}`
+}
+
 function parseKeyValues(value) {
   const out = {}
   value.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => {
@@ -134,39 +156,33 @@ function AgentsSettings() {
   const agents = [builtinAgent, ...configuredAgents.filter((agent) => agent.id !== builtinAgent.id)]
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ id: '', name: '', enabled: true, type: 'stdio', command: '', args: '', url: '', headers: '' })
+  const [form, setForm] = useState({ name: '', enabled: true, command: '', args: '' })
 
-  const reset = () => setForm({ id: '', name: '', enabled: true, type: 'stdio', command: '', args: '', url: '', headers: '' })
+  const reset = () => setForm({ name: '', enabled: true, command: '', args: '' })
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (agent) => {
     setAdding(false)
     setEditing(agent.id)
     setForm({
-      id: agent.id || '',
       name: agent.name || '',
       enabled: agent.enabled !== false,
-      type: agent.type || 'stdio',
       command: agent.command || '',
       args: (agent.args || []).join(' '),
-      url: agent.url || '',
-      headers: keyValuesToText(agent.headers),
     })
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
   const handleSave = async () => {
-    const id = form.id.trim()
-    if (!id) return
+    if (!form.command.trim()) return
     await saveConfig((prev) => {
-      const agents = (prev.agents || []).filter((agent) => agent.id !== (editing || id))
+      const id = uniqueAgentId(form, prev.agents || [], editing)
+      const agents = (prev.agents || []).filter((agent) => agent.id !== id)
       agents.push({
         id,
         name: form.name.trim(),
         enabled: form.enabled,
-        type: form.type.trim() || 'stdio',
+        type: 'stdio',
         command: form.command.trim(),
         args: parseList(form.args),
-        url: form.url.trim(),
-        headers: parseKeyValues(form.headers),
       })
       return { ...prev, agents }
     })
@@ -185,18 +201,12 @@ function AgentsSettings() {
   const editor = (
     <div className="space-y-2">
       <div className="grid gap-2 md:grid-cols-2">
-        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
-        <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} />
-        <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
-          <option value="stdio">stdio</option>
-        </select>
+        <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} autoFocus />
         <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
         <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
-        <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
       </div>
-      <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" onClick={handleSave} disabled={!form.command.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
     </div>
