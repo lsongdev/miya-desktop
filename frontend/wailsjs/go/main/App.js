@@ -14,12 +14,20 @@ export function CreateSession(arg1) {
   return window['go']['main']['App']['CreateSession'](arg1);
 }
 
+export function DefaultCwd() {
+  return window['go']['main']['App']['DefaultCwd']();
+}
+
 export function DeleteSession(arg1) {
   return window['go']['main']['App']['DeleteSession'](arg1);
 }
 
 export function DisconnectAgent() {
   return window['go']['main']['App']['DisconnectAgent']();
+}
+
+export function GetConversation(arg1) {
+  return window['go']['main']['App']['GetConversation'](arg1);
 }
 
 export function Greet(arg1) {
