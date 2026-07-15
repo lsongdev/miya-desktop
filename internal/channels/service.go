@@ -22,6 +22,9 @@ type ChannelEvent struct {
 	QRCode      string `json:"qrcode,omitempty"`
 	QRCodeURL   string `json:"qrcodeUrl,omitempty"`
 	QRCodeImage string `json:"qrcodeImage,omitempty"`
+	Token       string `json:"token,omitempty"`
+	BaseURL     string `json:"baseUrl,omitempty"`
+	CDNBaseURL  string `json:"cdnBaseUrl,omitempty"`
 	Error       string `json:"error,omitempty"`
 }
 

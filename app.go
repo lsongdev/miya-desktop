@@ -382,43 +382,17 @@ func (a *App) StartWeChatLogin(rawConfig map[string]any) error {
 			}
 			return
 		}
-		if err := a.saveWeChatConfig(cfg); err != nil {
-			a.emit("channel:event", channelservice.ChannelEvent{
-				Channel: "wechat",
-				Type:    "login",
-				Status:  "error",
-				Error:   err.Error(),
-			})
-			return
-		}
 		a.emit("channel:event", channelservice.ChannelEvent{
-			Channel: "wechat",
-			Type:    "login",
-			Status:  "authenticated",
+			Channel:    "wechat",
+			Type:       "login",
+			Status:     "authenticated",
+			Token:      cfg.Token,
+			BaseURL:    cfg.BaseURL,
+			CDNBaseURL: cfg.CDNBaseURL,
 		})
 	}()
 
 	return nil
-}
-
-func (a *App) saveWeChatConfig(wechatConfig any) error {
-	cfg, err := a.config.Load()
-	if err != nil {
-		return err
-	}
-	if cfg.Channels == nil {
-		cfg.Channels = map[string]any{}
-	}
-	var value map[string]any
-	data, err := json.Marshal(wechatConfig)
-	if err != nil {
-		return fmt.Errorf("marshal wechat login config: %w", err)
-	}
-	if err := json.Unmarshal(data, &value); err != nil {
-		return fmt.Errorf("decode wechat login config: %w", err)
-	}
-	cfg.Channels["wechat"] = value
-	return a.config.Save(cfg)
 }
 
 func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {

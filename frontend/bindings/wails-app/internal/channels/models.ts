@@ -12,6 +12,9 @@ export class ChannelEvent {
     "qrcode"?: string;
     "qrcodeUrl"?: string;
     "qrcodeImage"?: string;
+    "token"?: string;
+    "baseUrl"?: string;
+    "cdnBaseUrl"?: string;
     "error"?: string;
 
     /** Creates a new ChannelEvent instance. */

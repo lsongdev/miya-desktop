@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
@@ -666,7 +666,7 @@ function McpSettings() {
 }
 
 function ChannelsSettings() {
-  const { config, saveConfig, saving, error, reload } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const channels = entriesOf(config.channels)
   // TODO: Move this desktop-local preference out of shared ~/.miya/config.json.
   const channelsEnabled = config.channelsEnabled !== false
@@ -677,6 +677,7 @@ function ChannelsSettings() {
   const [serviceBusy, setServiceBusy] = useState(false)
   const [loginBusy, setLoginBusy] = useState(false)
   const [form, setForm] = useState({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
+  const wechatLoginStartedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -717,10 +718,20 @@ function ChannelsSettings() {
         }))
         if (payload.channel === 'wechat' && payload.status === 'authenticated') {
           setLoginBusy(false)
-          reload?.()
+          wechatLoginStartedRef.current = false
+          setForm((prev) => ({
+            ...prev,
+            id: 'wechat',
+            token: payload.token || prev.token,
+            baseUrl: payload.baseUrl || prev.baseUrl,
+            cdnBaseUrl: payload.cdnBaseUrl || prev.cdnBaseUrl,
+          }))
+          setAdding(false)
+          setEditing('wechat')
         }
         if (payload.channel === 'wechat' && ['error', 'expired', 'cancelled'].includes(payload.status)) {
           setLoginBusy(false)
+          wechatLoginStartedRef.current = false
         }
       } catch (err) {
         console.error('Failed to handle channel event', err)
@@ -729,7 +740,11 @@ function ChannelsSettings() {
     return () => cleanup()
   }, [])
 
-  const reset = () => { setForm({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' }); setLocalError(null) }
+  const reset = () => {
+    wechatLoginStartedRef.current = false
+    setForm({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
+    setLocalError(null)
+  }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (channel) => {
     setAdding(false)
@@ -743,6 +758,7 @@ function ChannelsSettings() {
       cdnBaseUrl: value.cdn_base_url || '',
       json: rawToText(value),
     })
+    wechatLoginStartedRef.current = false
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
   const handleSave = async () => {
@@ -776,29 +792,38 @@ function ChannelsSettings() {
     }
   }
 
-  const startWeChatLogin = async () => {
+  const wechatValueFromForm = (source = form) => {
+    const value = {}
+    if (source.token.trim()) value.token = source.token.trim()
+    if (source.baseUrl.trim()) value.base_url = source.baseUrl.trim()
+    if (source.cdnBaseUrl.trim()) value.cdn_base_url = source.cdnBaseUrl.trim()
+    return value
+  }
+
+  const startWeChatLogin = async (value = wechatValueFromForm()) => {
     setLocalError(null)
     setLoginBusy(true)
     try {
-      const value = {}
-      if (form.token.trim()) value.token = form.token.trim()
-      if (form.baseUrl.trim()) value.base_url = form.baseUrl.trim()
-      if (form.cdnBaseUrl.trim()) value.cdn_base_url = form.cdnBaseUrl.trim()
-      await saveConfig((prev) => {
-        const channels = { ...(prev.channels || {}) }
-        channels.wechat = value
-        return { ...prev, channels }
-      })
-      setAdding(false)
-      setEditing('wechat')
       await StartWeChatLogin(value)
     } catch (err) {
       setLocalError(err.toString())
       setLoginBusy(false)
+      wechatLoginStartedRef.current = false
     }
   }
 
   const wechatEvent = service?.channelEvents?.wechat
+
+  useEffect(() => {
+    if (form.id !== 'wechat') {
+      wechatLoginStartedRef.current = false
+      return
+    }
+    if (!adding || form.token || loginBusy || wechatLoginStartedRef.current) return
+    wechatLoginStartedRef.current = true
+    startWeChatLogin(wechatValueFromForm(form))
+  }, [adding, form.id, form.token, form.baseUrl, form.cdnBaseUrl, loginBusy])
+
   const handleDelete = async (id) => {
     await saveConfig((prev) => {
       const channels = { ...(prev.channels || {}) }
@@ -828,7 +853,11 @@ function ChannelsSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <select value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} className={selectClass} autoFocus>
+      <select value={form.id} onChange={(e) => {
+        const id = e.target.value
+        if (id !== 'wechat') wechatLoginStartedRef.current = false
+        setForm((f) => ({ ...f, id }))
+      }} className={selectClass} autoFocus>
         {channelTypes.map((channel) => (
           <option key={channel.id} value={channel.id}>{channel.label}</option>
         ))}
@@ -846,7 +875,7 @@ function ChannelsSettings() {
                 <img src={wechatEvent.qrcodeImage} alt="WeChat login QR code" className="size-28 rounded-md border bg-white object-contain p-1" />
               ) : (
                 <div className="flex size-28 items-center justify-center rounded-md border bg-background text-center text-xs text-muted-foreground">
-                  {loginBusy ? 'Preparing QR...' : 'Generate QR'}
+                  {loginBusy ? 'Preparing QR...' : 'Select WeChat to generate QR'}
                 </div>
               )}
               <div className="min-w-0 space-y-1 text-xs">
@@ -860,7 +889,7 @@ function ChannelsSettings() {
                         ? 'QR code expired, save again to refresh'
                         : wechatEvent?.qrcodeImage
                           ? 'Scan with WeChat to connect'
-                          : 'Generate a QR code to complete login'}
+                          : 'Select WeChat to generate a login QR code'}
                 </p>
                 {wechatEvent?.qrcodeUrl && <p className="truncate font-mono text-muted-foreground">{wechatEvent.qrcodeUrl}</p>}
                 {wechatEvent?.error && <p className="text-destructive">{wechatEvent.error}</p>}
@@ -875,12 +904,6 @@ function ChannelsSettings() {
         <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving}>
           <Check className="size-3.5 mr-1" /> Save
         </Button>
-        {form.id === 'wechat' && (
-          <Button size="sm" variant="outline" onClick={startWeChatLogin} disabled={saving || loginBusy}>
-            {loginBusy ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />}
-            Generate Login QR
-          </Button>
-        )}
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
       <ConfigError error={localError} />
