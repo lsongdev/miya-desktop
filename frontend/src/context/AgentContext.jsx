@@ -34,7 +34,7 @@ function saveSelectedId(id) {
 }
 
 export function AgentProvider({ children }) {
-  const { config } = useMiyaConfig()
+  const { config, loading } = useMiyaConfig()
   const [selectedAgentId, setSelectedAgentIdState] = useState(loadSelectedId)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -77,7 +77,7 @@ export function AgentProvider({ children }) {
     } finally {
       setConnecting(false)
     }
-  }, [selectedAgent])
+  }, [selectedAgent, setSelectedAgentId])
 
   const disconnect = useCallback(async () => {
     try { await DisconnectAgent() } catch {}
@@ -91,10 +91,10 @@ export function AgentProvider({ children }) {
   }, [disconnect, connect])
 
   useEffect(() => {
-    if (selectedAgent?.command && !connected && !connecting) {
+    if (!loading && selectedAgent?.command && !connected && !connecting) {
       connect()
     }
-  }, [])
+  }, [loading, selectedAgent?.id, selectedAgent?.command, connected, connecting, connect])
 
   return (
     <AgentContext.Provider value={{
