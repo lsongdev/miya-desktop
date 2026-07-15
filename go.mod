@@ -40,4 +40,4 @@ require (
 
 // replace github.com/wailsapp/wails/v2 v2.12.0 => /usr/local/share/go/pkg/mod
 
-replace github.com/lsongdev/miya-agents => /Users/Lsong/Projects/miya-agents
+replace github.com/lsongdev/miya-agents => /Users/Lsong/Projects/miya/miya-agents
