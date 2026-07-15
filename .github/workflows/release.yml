@@ -72,3 +72,62 @@ jobs:
           name: Miya ${{ github.event.inputs.version || github.ref_name }}
           prerelease: true
           files: miya-desktop/build/artifacts/*
+
+  windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout desktop
+        uses: actions/checkout@v4
+        with:
+          path: miya-desktop
+
+      - name: Checkout agents
+        uses: actions/checkout@v4
+        with:
+          repository: lsongdev/miya-agents
+          path: miya-agents
+
+      - name: Checkout channels
+        uses: actions/checkout@v4
+        with:
+          repository: lsongdev/miya-channels
+          path: miya-channels
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: miya-desktop/go.mod
+          cache-dependency-path: |
+            miya-desktop/go.sum
+            miya-agents/go.sum
+            miya-channels/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: miya-desktop/frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+
+      - name: Build
+        working-directory: miya-desktop
+        run: wails build -platform windows/amd64 -clean -trimpath
+
+      - name: Package
+        working-directory: miya-desktop
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build/artifacts | Out-Null
+          Compress-Archive -Path build/bin/miya-desktop.exe -DestinationPath build/artifacts/miya-desktop-windows-amd64.zip -Force
+
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: Miya ${{ github.event.inputs.version || github.ref_name }}
+          prerelease: true
+          files: miya-desktop/build/artifacts/*
