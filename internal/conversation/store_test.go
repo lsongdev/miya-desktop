@@ -1,0 +1,163 @@
+package conversation
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+
+	"wails-app/internal/acpadapter"
+
+	"github.com/lsongdev/miya-agents/acp"
+)
+
+func TestStoreReducesStreamingMessageChunks(t *testing.T) {
+	store := testStore()
+
+	store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "agent_message_chunk",
+		"messageId": "m1",
+		"content": {"type": "text", "text": "hel"}
+	}`))
+	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "agent_message_chunk",
+		"messageId": "m1",
+		"content": {"type": "text", "text": "lo"}
+	}`))
+
+	msgs := snap.Conversation.Messages
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	if got := msgs[0].Blocks[0].Content; got != "hello" {
+		t.Fatalf("content = %q", got)
+	}
+}
+
+func TestStoreSeparatesReplayedMessagesWithoutMessageID(t *testing.T) {
+	store := testStore()
+
+	store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "user_message_chunk",
+		"content": {"type": "text", "text": "first"}
+	}`))
+	snap, ok := store.CompleteStreaming("s1")
+	if !ok {
+		t.Fatalf("missing snapshot")
+	}
+	if snap.Conversation.Messages[0].Status != MessageComplete {
+		t.Fatalf("message was not completed")
+	}
+	snap = store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "user_message_chunk",
+		"content": {"type": "text", "text": "second"}
+	}`))
+
+	if len(snap.Conversation.Messages) != 2 {
+		t.Fatalf("messages = %d", len(snap.Conversation.Messages))
+	}
+}
+
+func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
+	store := testStore()
+
+	store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "agent_thought_chunk",
+		"content": {"type": "text", "text": "think"}
+	}`))
+	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "tool_call",
+		"toolCallId": "tc-1",
+		"title": "Read",
+		"kind": "read",
+		"status": "pending",
+		"content": []
+	}`))
+
+	msgs := snap.Conversation.Messages
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d", len(msgs))
+	}
+	if len(msgs[0].Blocks) != 2 {
+		t.Fatalf("blocks = %#v", msgs[0].Blocks)
+	}
+	if msgs[0].Blocks[0].Type != BlockThought || msgs[0].Blocks[0].Content != "think" {
+		t.Fatalf("thought block = %#v", msgs[0].Blocks[0])
+	}
+	if msgs[0].Blocks[1].Type != BlockToolCall || msgs[0].Blocks[1].Tool.ToolCallID != acp.ToolCallID("tc-1") {
+		t.Fatalf("tool block = %#v", msgs[0].Blocks[1])
+	}
+}
+
+func TestStoreMergesToolUpdates(t *testing.T) {
+	store := testStore()
+
+	store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "tool_call",
+		"toolCallId": "tc-1",
+		"title": "Read",
+		"kind": "read",
+		"status": "pending",
+		"content": []
+	}`))
+	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "tool_call_update",
+		"toolCallId": "tc-1",
+		"status": "completed",
+		"rawOutput": {"ok": true}
+	}`))
+
+	tool := snap.Conversation.Messages[0].Blocks[0].Tool
+	if tool.Status != acp.ToolCallCompleted {
+		t.Fatalf("status = %q", tool.Status)
+	}
+	if tool.Title != "Read" || tool.Kind != acp.ToolKindRead {
+		t.Fatalf("existing fields were not preserved: %#v", tool)
+	}
+	if len(tool.RawOutput) == 0 {
+		t.Fatalf("raw output was not merged")
+	}
+}
+
+func TestStoreTracksSessionInfoUsageAndMode(t *testing.T) {
+	store := testStore()
+
+	title := "Project Chat"
+	store.ApplyACPEvent("s1", &acpadapter.Event{
+		Type: "session_info_update",
+		Info: &acp.SessionInfoUpdate{Title: &title},
+	})
+	store.ApplyACPEvent("s1", &acpadapter.Event{
+		Type:  "usage_update",
+		Usage: &acp.UsageUpdate{Size: 1000, Used: 200},
+	})
+	snap := store.ApplyACPEvent("s1", &acpadapter.Event{
+		Type: "current_mode_update",
+		Mode: &acp.CurrentModeUpdate{CurrentModeID: "plan"},
+	})
+
+	if snap.Conversation.Title != title {
+		t.Fatalf("title = %q", snap.Conversation.Title)
+	}
+	if snap.Conversation.Usage == nil || snap.Conversation.Usage.Used != 200 {
+		t.Fatalf("usage = %#v", snap.Conversation.Usage)
+	}
+	if snap.Conversation.Mode == nil || snap.Conversation.Mode.CurrentModeID != "plan" {
+		t.Fatalf("mode = %#v", snap.Conversation.Mode)
+	}
+}
+
+func testStore() *Store {
+	store := NewStore()
+	now := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	store.now = func() time.Time { return now }
+	return store
+}
+
+func mustEvent(t *testing.T, raw string) *acpadapter.Event {
+	t.Helper()
+	event, err := acpadapter.ParseUpdate(json.RawMessage(raw))
+	if err != nil {
+		t.Fatalf("ParseUpdate error: %v", err)
+	}
+	return event
+}
