@@ -17,7 +17,7 @@
 ### 2. go.mod 中的本地 replace 指令
 
 ```go
-replace github.com/lsongdev/miya-agents => /Users/Lsong/Projects/miya-agents
+replace github.com/lsongdev/miya-agents => /Users/Lsong/Projects/miya/miya-agents
 ```
 
 这会导致其他开发者无法构建项目。应：
