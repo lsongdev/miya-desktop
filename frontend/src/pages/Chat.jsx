@@ -379,9 +379,16 @@ export default function Chat() {
             onLoadComplete={handleLoadComplete}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Bot className="size-10 mb-3" />
-            <p className="text-sm">Select or create a session to start chatting</p>
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <Bot className="size-8" />
+            </div>
+            <h1 className="max-w-lg text-3xl font-semibold tracking-normal text-foreground">
+              Choose an agent. Open a session. Move the work forward.
+            </h1>
+            <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
+              Start a fresh thread or resume an existing one from the session list.
+            </p>
           </div>
         )}
       </div>
