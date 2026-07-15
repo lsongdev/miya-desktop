@@ -20,8 +20,16 @@ const settingsItems = [
   { id: 'about', label: 'About', icon: Info },
 ]
 
+const channelTypes = [
+  { id: 'telegram', label: 'Telegram' },
+  { id: 'feishu', label: 'Feishu' },
+  { id: 'wechat', label: 'WeChat' },
+  { id: 'wecom', label: 'WeCom' },
+]
+
 const inputClass = 'h-8 text-sm'
 const monoInputClass = 'h-8 font-mono text-sm'
+const selectClass = 'h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring'
 const textAreaClass = 'min-h-24 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring'
 
 function entriesOf(obj) {
@@ -59,6 +67,17 @@ function uniqueAgentId(form, agents, editing) {
   return `${base}-${index}`
 }
 
+function uniqueMcpServerId(form, servers, editing) {
+  if (editing) return editing
+  const source = form.command || form.url || 'mcp-server'
+  const base = slugify(basename(source) || source || 'mcp-server') || 'mcp-server'
+  const used = new Set(Object.keys(servers || {}))
+  if (!used.has(base)) return base
+  let index = 2
+  while (used.has(`${base}-${index}`)) index += 1
+  return `${base}-${index}`
+}
+
 function parseKeyValues(value) {
   const out = {}
   value.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => {
@@ -79,6 +98,13 @@ function rawToText(value) {
   } catch {
     return '{}'
   }
+}
+
+function channelSummary(channel) {
+  if (channel.id === 'telegram') {
+    return channel.token ? 'bot token configured' : 'bot token missing'
+  }
+  return rawToText(channel).replace(/\s+/g, ' ')
 }
 
 function ConfigError({ error }) {
@@ -200,10 +226,12 @@ function AgentsSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="grid gap-2">
         <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} autoFocus />
-        <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
-        <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+        <div className="grid gap-2 md:grid-cols-2">
+          <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
+          <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+        </div>
       </div>
       <div className="flex gap-1.5">
         <Button size="sm" onClick={handleSave} disabled={!form.command.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
@@ -238,18 +266,18 @@ function AgentsSettings() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <Switch
-                    checked={agent.enabled !== false}
-                    onChange={(enabled) => handleToggleEnabled(agent.id, enabled)}
-                    disabled={saving || agent.builtin}
-                    label={`Enable ${agent.name || agent.id}`}
-                  />
                   {!agent.builtin && (
                     <>
                       <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
                       <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
                     </>
                   )}
+                  <Switch
+                    checked={agent.enabled !== false}
+                    onChange={(enabled) => handleToggleEnabled(agent.id, enabled)}
+                    disabled={saving || agent.builtin}
+                    label={`Enable ${agent.name || agent.id}`}
+                  />
                 </div>
               </div>
             )}
@@ -483,18 +511,19 @@ function McpSettings() {
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
   const handleSave = async () => {
-    const id = form.id.trim()
-    if (!id) return
+    if (form.type === 'stdio' && !form.command.trim()) return
+    if (form.type !== 'stdio' && !form.url.trim()) return
     await saveConfig((prev) => {
+      const id = uniqueMcpServerId(form, prev.mcpServers || {}, editing)
       const mcpServers = { ...(prev.mcpServers || {}) }
-      if (editing && editing !== id) delete mcpServers[editing]
+      if (editing) delete mcpServers[editing]
       mcpServers[id] = {
         type: form.type.trim() || 'stdio',
-        command: form.command.trim(),
-        args: parseList(form.args),
-        env: parseKeyValues(form.env),
-        url: form.url.trim(),
-        headers: parseKeyValues(form.headers),
+        command: form.type === 'stdio' ? form.command.trim() : '',
+        args: form.type === 'stdio' ? parseList(form.args) : [],
+        env: form.type === 'stdio' ? parseKeyValues(form.env) : {},
+        url: form.type === 'stdio' ? '' : form.url.trim(),
+        headers: form.type === 'stdio' ? {} : parseKeyValues(form.headers),
       }
       return { ...prev, mcpServers }
     })
@@ -510,21 +539,27 @@ function McpSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <div className="grid gap-2 md:grid-cols-2">
-        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Server ID" className={inputClass} autoFocus />
-        <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
+      <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={selectClass} autoFocus>
           <option value="stdio">stdio</option>
           <option value="http">http</option>
           <option value="sse">sse</option>
-        </select>
-        <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
-        <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
-        <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
-      </div>
-      <textarea value={form.env} onChange={(e) => setForm((f) => ({ ...f, env: e.target.value }))} placeholder="ENV_KEY=value" className={textAreaClass} />
-      <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
+      </select>
+      {form.type === 'stdio' ? (
+        <>
+          <div className="grid gap-2 md:grid-cols-2">
+            <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
+            <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+          </div>
+          <textarea value={form.env} onChange={(e) => setForm((f) => ({ ...f, env: e.target.value }))} placeholder="ENV_KEY=value" className={textAreaClass} />
+        </>
+      ) : (
+        <>
+          <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder={`${form.type.toUpperCase()} URL`} className={monoInputClass} />
+          <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
+        </>
+      )}
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" onClick={handleSave} disabled={(form.type === 'stdio' ? !form.command.trim() : !form.url.trim()) || saving}><Check className="size-3.5 mr-1" /> Save</Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
     </div>
@@ -576,7 +611,7 @@ function ChannelsSettings() {
   const [localError, setLocalError] = useState(null)
   const [service, setService] = useState({ running: false })
   const [serviceBusy, setServiceBusy] = useState(false)
-  const [form, setForm] = useState({ id: '', json: '{}' })
+  const [form, setForm] = useState({ id: 'telegram', token: '', json: '{}' })
 
   useEffect(() => {
     let cancelled = false
@@ -593,25 +628,30 @@ function ChannelsSettings() {
     }
   }, [])
 
-  const reset = () => { setForm({ id: '', json: '{}' }); setLocalError(null) }
+  const reset = () => { setForm({ id: 'telegram', token: '', json: '{}' }); setLocalError(null) }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (channel) => {
     setAdding(false)
     setEditing(channel.id)
     setLocalError(null)
     const { id, ...value } = channel
-    setForm({ id, json: rawToText(value) })
+    setForm({ id, token: value.token || '', json: rawToText(value) })
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
   const handleSave = async () => {
     const id = form.id.trim()
     if (!id) return
     let value
-    try {
-      value = JSON.parse(form.json || '{}')
-    } catch (err) {
-      setLocalError(err.toString())
-      return
+    if (id === 'telegram') {
+      if (!form.token.trim()) return
+      value = { token: form.token.trim() }
+    } else {
+      try {
+        value = JSON.parse(form.json || '{}')
+      } catch (err) {
+        setLocalError(err.toString())
+        return
+      }
     }
     await saveConfig((prev) => {
       const channels = { ...(prev.channels || {}) }
@@ -650,10 +690,18 @@ function ChannelsSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Channel ID, e.g. telegram" className={inputClass} autoFocus />
-      <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder='{"botToken":"...","chatId":"..."}' className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
+      <select value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} className={selectClass} autoFocus>
+        {channelTypes.map((channel) => (
+          <option key={channel.id} value={channel.id}>{channel.label}</option>
+        ))}
+      </select>
+      {form.id === 'telegram' ? (
+        <Input value={form.token} onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))} placeholder="Bot token" type="password" className={monoInputClass} />
+      ) : (
+        <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder="Channel JSON config" className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
+      )}
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving}><Check className="size-3.5 mr-1" /> Save</Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
       <ConfigError error={localError} />
@@ -703,7 +751,7 @@ function ChannelsSettings() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="font-medium text-sm">{channel.id}</p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">{rawToText(channel).replace(/\s+/g, ' ')}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{channelSummary(channel)}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">
                   <Button variant="ghost" size="icon-xs" onClick={() => startEdit(channel)}><Pencil className="size-3" /></Button>
