@@ -1,17 +1,21 @@
 module wails-app
 
-go 1.25.0
+go 1.26.1
 
 require (
 	github.com/lsongdev/miya-agents v0.0.0-20260612032442-0e7c5fff6788
+	github.com/lsongdev/miya-channels v0.0.0
 	github.com/wailsapp/wails/v2 v2.12.0
 )
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
+	github.com/PuerkitoBio/goquery v1.11.0 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
@@ -21,7 +25,11 @@ require (
 	github.com/leaanthony/gosod v1.0.4 // indirect
 	github.com/leaanthony/slicer v1.6.0 // indirect
 	github.com/leaanthony/u v1.1.1 // indirect
+	github.com/lsongdev/feishu-go v0.0.0-20260319163837-39674c462916 // indirect
 	github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3 // indirect
+	github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9 // indirect
+	github.com/lsongdev/wechatbot-go v0.0.0-20260324073854-535a867c66ad // indirect
+	github.com/lsongdev/wecom-go v0.0.0-20260319113224-a7efceeaed8a // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -33,12 +41,16 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
+	github.com/yuin/goldmark v1.7.16 // indirect
 	golang.org/x/crypto v0.44.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 // replace github.com/wailsapp/wails/v2 v2.12.0 => /usr/local/share/go/pkg/mod
 
-replace github.com/lsongdev/miya-agents => /Users/Lsong/Projects/miya/miya-agents
+replace github.com/lsongdev/miya-agents => ../miya-agents
+
+replace github.com/lsongdev/miya-channels => ../miya-channels

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"wails-app/internal/agent"
+	"wails-app/internal/agentclient"
 	channelservice "wails-app/internal/channels"
 	miyaconfig "wails-app/internal/config"
 
@@ -31,9 +32,9 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.manager = agent.New(ctx)
 	a.config = miyaconfig.NewService()
-	a.channels = channelservice.NewService()
+	a.manager = agent.New(ctx, a.config.Load)
+	a.channels = channelservice.NewService(a.config.Load)
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -108,7 +109,7 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 			continue
 		}
 
-		client, err := acp.DialStdio(endpoint.Command, endpoint.Args...)
+		client, err := agentclient.NewForEndpoint(endpoint, a.config.Load)
 		if err != nil {
 			log.Printf("[agent] ListAgentSessions dial %s: %v", endpoint.ID, err)
 			continue

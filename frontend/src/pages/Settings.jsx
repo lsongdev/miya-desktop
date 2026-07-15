@@ -154,6 +154,7 @@ function AgentsSettings() {
         <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
         <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} />
         <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
+          <option value="builtin">builtin</option>
           <option value="stdio">stdio</option>
           <option value="http">http</option>
           <option value="sse">sse</option>
