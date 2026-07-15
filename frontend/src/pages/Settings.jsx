@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useAgent } from '../context/AgentContext'
-import { useProvider } from '../context/ProviderContext'
+import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Palette, Info,
-  Loader2, Plus, Trash2, Pencil, Check, X, Key,
+  Loader2, Plus, Trash2, Pencil, Check, X, Key, Radio,
 } from 'lucide-react'
 
 const settingsItems = [
@@ -14,18 +14,79 @@ const settingsItems = [
   { id: 'agents', label: 'Agents', icon: Bot },
   { id: 'providers', label: 'Providers', icon: Key },
   { id: 'mcp', label: 'MCP Servers', icon: Puzzle },
+  { id: 'channels', label: 'Channels', icon: Radio },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'about', label: 'About', icon: Info },
 ]
 
+const inputClass = 'h-8 text-sm'
+const monoInputClass = 'h-8 font-mono text-sm'
+const textAreaClass = 'min-h-24 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring'
+
+function entriesOf(obj) {
+  return Object.entries(obj || {}).map(([id, value]) => ({ id, ...(value || {}) }))
+}
+
+function parseList(value) {
+  return value.split(/\s+/).map((s) => s.trim()).filter(Boolean)
+}
+
+function parseKeyValues(value) {
+  const out = {}
+  value.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => {
+    const idx = line.indexOf('=')
+    if (idx > 0) out[line.slice(0, idx).trim()] = line.slice(idx + 1).trim()
+  })
+  return out
+}
+
+function keyValuesToText(value) {
+  return Object.entries(value || {}).map(([k, v]) => `${k}=${v}`).join('\n')
+}
+
+function rawToText(value) {
+  if (!value) return '{}'
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return '{}'
+  }
+}
+
+function ConfigError({ error }) {
+  if (!error) return null
+  return <p className="text-xs text-destructive">{error}</p>
+}
+
 function GeneralSettings() {
   const { agents, selectedAgent, selectedAgentId, setSelectedAgentId, connected, connecting, agentInfo, error, connect, disconnect } = useAgent()
+  const { config, path, saveConfig, saving, error: configError } = useMiyaConfig()
+  const [acpForm, setAcpForm] = useState({
+    command: config.acp?.command || 'miya',
+    args: (config.acp?.args || ['acp']).join(' '),
+  })
+
+  useEffect(() => {
+    setAcpForm({
+      command: config.acp?.command || 'miya',
+      args: (config.acp?.args || ['acp']).join(' '),
+    })
+  }, [config.acp])
+
+  const saveACP = async () => {
+    const command = acpForm.command.trim()
+    if (!command) return
+    await saveConfig((prev) => ({
+      ...prev,
+      acp: { command, args: parseList(acpForm.args) },
+    }))
+  }
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">General</h2>
       <p className="text-sm text-muted-foreground">
-        Select the active agent for chat conversations.
+        Select the active ACP agent for chat conversations.
       </p>
 
       <div className="rounded-lg border bg-card p-6 space-y-4">
@@ -79,310 +140,416 @@ function GeneralSettings() {
           </div>
         )}
       </div>
+
+      <div className="rounded-lg border bg-card p-6 space-y-3">
+        <div>
+          <p className="font-medium text-sm">Miya Agents ACP Command</p>
+          <p className="text-xs text-muted-foreground">Saved in {path || '~/.miya/config.json'} and exposed as the Miya Agents connection.</p>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto]">
+          <Input value={acpForm.command} onChange={(e) => setAcpForm((f) => ({ ...f, command: e.target.value }))} placeholder="miya" className={monoInputClass} />
+          <Input value={acpForm.args} onChange={(e) => setAcpForm((f) => ({ ...f, args: e.target.value }))} placeholder="acp" className={monoInputClass} />
+          <Button size="sm" onClick={saveACP} disabled={!acpForm.command.trim() || saving}>
+            <Check className="size-3.5 mr-1" /> Save
+          </Button>
+        </div>
+        <ConfigError error={configError} />
+      </div>
     </div>
   )
 }
 
 function AgentsSettings() {
-  const { agents, addAgent, updateAgent, removeAgent } = useAgent()
+  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const agents = entriesOf(config.agents)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ name: '', command: '' })
+  const [form, setForm] = useState({
+    id: '', provider: '', model: '', workspace: '', maxTokens: '', temperature: '',
+    contextWindowTokens: '', contextWarnRatio: '',
+  })
 
-  const startAdd = () => {
-    setAdding(true)
-    setEditing(null)
-    setForm({ name: '', command: '' })
-  }
-
+  const reset = () => setForm({ id: '', provider: '', model: '', workspace: '', maxTokens: '', temperature: '', contextWindowTokens: '', contextWarnRatio: '' })
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (agent) => {
     setAdding(false)
     setEditing(agent.id)
-    setForm({ name: agent.name, command: agent.command })
+    setForm({
+      id: agent.id,
+      provider: agent.provider || '',
+      model: agent.model || '',
+      workspace: agent.workspace || '',
+      maxTokens: agent.maxTokens ? String(agent.maxTokens) : '',
+      temperature: agent.temperature ? String(agent.temperature) : '',
+      contextWindowTokens: agent.contextWindowTokens ? String(agent.contextWindowTokens) : '',
+      contextWarnRatio: agent.contextWarnRatio ? String(agent.contextWarnRatio) : '',
+    })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    const id = form.id.trim()
+    if (!id || !form.provider.trim()) return
+    await saveConfig((prev) => {
+      const agents = { ...(prev.agents || {}) }
+      if (editing && editing !== id) delete agents[editing]
+      agents[id] = {
+        provider: form.provider.trim(),
+        model: form.model.trim(),
+        workspace: form.workspace.trim(),
+        maxTokens: Number(form.maxTokens) || 0,
+        temperature: Number(form.temperature) || 0,
+        contextWindowTokens: Number(form.contextWindowTokens) || 0,
+        contextWarnRatio: Number(form.contextWarnRatio) || 0,
+      }
+      return { ...prev, agents }
+    })
+    handleCancel()
+  }
+  const handleDelete = async (id) => {
+    await saveConfig((prev) => {
+      const agents = { ...(prev.agents || {}) }
+      delete agents[id]
+      return { ...prev, agents }
+    })
   }
 
-  const handleSave = () => {
-    if (!form.name.trim() || !form.command.trim()) return
-    if (adding) {
-      const id = form.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
-      addAgent({ id, name: form.name.trim(), command: form.command.trim() })
-    } else if (editing) {
-      updateAgent(editing, { name: form.name.trim(), command: form.command.trim() })
-    }
-    setAdding(false)
-    setEditing(null)
-    setForm({ name: '', command: '' })
-  }
-
-  const handleCancel = () => {
-    setAdding(false)
-    setEditing(null)
-    setForm({ name: '', command: '' })
-  }
-
-  const handleDelete = (id) => {
-    removeAgent(id)
-  }
+  const editor = (
+    <div className="space-y-2">
+      <div className="grid gap-2 md:grid-cols-2">
+        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
+        <Input value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Provider ID" className={inputClass} />
+        <Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="Model" className={monoInputClass} />
+        <Input value={form.workspace} onChange={(e) => setForm((f) => ({ ...f, workspace: e.target.value }))} placeholder="Workspace" className={monoInputClass} />
+        <Input value={form.maxTokens} onChange={(e) => setForm((f) => ({ ...f, maxTokens: e.target.value }))} placeholder="Max tokens" className={monoInputClass} />
+        <Input value={form.temperature} onChange={(e) => setForm((f) => ({ ...f, temperature: e.target.value }))} placeholder="Temperature" className={monoInputClass} />
+        <Input value={form.contextWindowTokens} onChange={(e) => setForm((f) => ({ ...f, contextWindowTokens: e.target.value }))} placeholder="Context window tokens" className={monoInputClass} />
+        <Input value={form.contextWarnRatio} onChange={(e) => setForm((f) => ({ ...f, contextWarnRatio: e.target.value }))} placeholder="Context warn ratio" className={monoInputClass} />
+      </div>
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || !form.provider.trim() || saving}>
+          <Check className="size-3.5 mr-1" /> Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}>
+          <X className="size-3.5 mr-1" /> Cancel
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Agents</h2>
-          <p className="text-sm text-muted-foreground">Manage ACP agent configurations.</p>
+          <p className="text-sm text-muted-foreground">Manage miya-agents entries in {path || '~/.miya/config.json'}.</p>
         </div>
         <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" />
-          Add Agent
+          <Plus className="size-3.5 mr-1" /> Add Agent
         </Button>
       </div>
-
       <div className="rounded-lg border bg-card divide-y">
         {agents.map((agent) => (
           <div key={agent.id} className="px-4 py-3">
-            {editing === agent.id ? (
-              <div className="space-y-2">
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Agent name"
-                  className="h-8 text-sm"
-                />
-                <Input
-                  value={form.command}
-                  onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))}
-                  placeholder="e.g. opencode acp"
-                  className="h-8 font-mono text-sm"
-                />
-                <div className="flex gap-1.5">
-                  <Button size="sm" onClick={handleSave} disabled={!form.name.trim() || !form.command.trim()}>
-                    <Check className="size-3.5 mr-1" /> Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={handleCancel}>
-                    <X className="size-3.5 mr-1" /> Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
+            {editing === agent.id ? editor : (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm">{agent.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">{agent.command}</p>
+                  <p className="font-medium text-sm">{agent.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{agent.provider || 'no provider'} / {agent.model || 'no model'}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}>
-                    <Pencil className="size-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}>
-                    <Trash2 className="size-3" />
-                  </Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
                 </div>
               </div>
             )}
           </div>
         ))}
-
-        {agents.length === 0 && (
-          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No agents configured
-          </div>
-        )}
-
-        {(adding || (editing === null && false)) && (
-          <div className="px-4 py-3">
-            <div className="space-y-2">
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Agent name"
-                className="h-8 text-sm"
-                autoFocus
-              />
-              <Input
-                value={form.command}
-                onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))}
-                placeholder="e.g. opencode acp"
-                className="h-8 font-mono text-sm"
-              />
-              <div className="flex gap-1.5">
-                <Button size="sm" onClick={handleSave} disabled={!form.name.trim() || !form.command.trim()}>
-                  <Check className="size-3.5 mr-1" /> Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={handleCancel}>
-                  <X className="size-3.5 mr-1" /> Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {agents.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No agents configured</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
       </div>
+      <ConfigError error={error} />
     </div>
   )
 }
 
 function ProvidersSettings() {
-  const { providers, addProvider, updateProvider, removeProvider } = useProvider()
+  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const providers = entriesOf(config.providers)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ name: '', apiKey: '', baseUrl: '' })
+  const [form, setForm] = useState({ id: '', type: 'openai', apiKey: '', apiBase: '' })
 
-  const startAdd = () => {
-    setAdding(true)
-    setEditing(null)
-    setForm({ name: '', apiKey: '', baseUrl: '' })
-  }
-
+  const reset = () => setForm({ id: '', type: 'openai', apiKey: '', apiBase: '' })
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (provider) => {
     setAdding(false)
     setEditing(provider.id)
-    setForm({ name: provider.name, apiKey: provider.apiKey, baseUrl: provider.baseUrl })
+    setForm({ id: provider.id, type: provider.type || 'openai', apiKey: provider.apiKey || '', apiBase: provider.apiBase || '' })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    const id = form.id.trim()
+    if (!id) return
+    await saveConfig((prev) => {
+      const providers = { ...(prev.providers || {}) }
+      if (editing && editing !== id) delete providers[editing]
+      providers[id] = { type: form.type.trim() || 'openai', apiKey: form.apiKey.trim(), apiBase: form.apiBase.trim() }
+      return { ...prev, providers }
+    })
+    handleCancel()
+  }
+  const handleDelete = async (id) => {
+    await saveConfig((prev) => {
+      const providers = { ...(prev.providers || {}) }
+      delete providers[id]
+      return { ...prev, providers }
+    })
   }
 
-  const handleSave = () => {
-    if (!form.name.trim()) return
-    if (adding) {
-      const id = form.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
-      addProvider({ id, name: form.name.trim(), apiKey: form.apiKey.trim(), baseUrl: form.baseUrl.trim() })
-    } else if (editing) {
-      updateProvider(editing, { name: form.name.trim(), apiKey: form.apiKey.trim(), baseUrl: form.baseUrl.trim() })
-    }
-    setAdding(false)
-    setEditing(null)
-    setForm({ name: '', apiKey: '', baseUrl: '' })
-  }
-
-  const handleCancel = () => {
-    setAdding(false)
-    setEditing(null)
-    setForm({ name: '', apiKey: '', baseUrl: '' })
-  }
-
-  const handleDelete = (id) => {
-    removeProvider(id)
-  }
+  const editor = (
+    <div className="space-y-2">
+      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Provider ID" className={inputClass} autoFocus />
+      <Input value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} placeholder="Type: openai or anthropic" className={monoInputClass} />
+      <Input value={form.apiKey} onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))} placeholder="API Key" type="password" className={monoInputClass} />
+      <Input value={form.apiBase} onChange={(e) => setForm((f) => ({ ...f, apiBase: e.target.value }))} placeholder="API Base URL" className={monoInputClass} />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Providers</h2>
-          <p className="text-sm text-muted-foreground">Manage API providers for LLM services.</p>
+          <p className="text-sm text-muted-foreground">Manage providers in {path || '~/.miya/config.json'}.</p>
         </div>
         <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" />
-          Add Provider
+          <Plus className="size-3.5 mr-1" /> Add Provider
         </Button>
       </div>
-
       <div className="rounded-lg border bg-card divide-y">
         {providers.map((provider) => (
           <div key={provider.id} className="px-4 py-3">
-            {editing === provider.id ? (
-              <div className="space-y-2">
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Provider name"
-                  className="h-8 text-sm"
-                />
-                <Input
-                  value={form.apiKey}
-                  onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                  placeholder="API Key"
-                  type="password"
-                  className="h-8 font-mono text-sm"
-                />
-                <Input
-                  value={form.baseUrl}
-                  onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
-                  placeholder="Base URL"
-                  className="h-8 font-mono text-sm"
-                />
-                <div className="flex gap-1.5">
-                  <Button size="sm" onClick={handleSave} disabled={!form.name.trim()}>
-                    <Check className="size-3.5 mr-1" /> Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={handleCancel}>
-                    <X className="size-3.5 mr-1" /> Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
+            {editing === provider.id ? editor : (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm">{provider.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">
-                    {provider.apiKey ? '••••••••' : 'No API key'} — {provider.baseUrl}
-                  </p>
+                  <p className="font-medium text-sm">{provider.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{provider.type || 'openai'} / {provider.apiKey ? 'configured key' : 'no key'} / {provider.apiBase || 'default endpoint'}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(provider)}>
-                    <Pencil className="size-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(provider.id)}>
-                    <Trash2 className="size-3" />
-                  </Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(provider)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(provider.id)}><Trash2 className="size-3" /></Button>
                 </div>
               </div>
             )}
           </div>
         ))}
-
-        {providers.length === 0 && (
-          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No providers configured
-          </div>
-        )}
-
-        {adding && (
-          <div className="px-4 py-3">
-            <div className="space-y-2">
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Provider name"
-                className="h-8 text-sm"
-                autoFocus
-              />
-              <Input
-                value={form.apiKey}
-                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-                placeholder="API Key"
-                type="password"
-                className="h-8 font-mono text-sm"
-              />
-              <Input
-                value={form.baseUrl}
-                onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
-                placeholder="Base URL"
-                className="h-8 font-mono text-sm"
-              />
-              <div className="flex gap-1.5">
-                <Button size="sm" onClick={handleSave} disabled={!form.name.trim()}>
-                  <Check className="size-3.5 mr-1" /> Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={handleCancel}>
-                  <X className="size-3.5 mr-1" /> Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {providers.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No providers configured</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
       </div>
+      <ConfigError error={error} />
     </div>
   )
 }
 
 function McpSettings() {
+  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const servers = entriesOf(config.mcpServers)
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ id: '', type: 'stdio', command: '', args: '', env: '', url: '', headers: '' })
+
+  const reset = () => setForm({ id: '', type: 'stdio', command: '', args: '', env: '', url: '', headers: '' })
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
+  const startEdit = (server) => {
+    setAdding(false)
+    setEditing(server.id)
+    setForm({
+      id: server.id,
+      type: server.type || 'stdio',
+      command: server.command || '',
+      args: (server.args || []).join(' '),
+      env: keyValuesToText(server.env),
+      url: server.url || '',
+      headers: keyValuesToText(server.headers),
+    })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    const id = form.id.trim()
+    if (!id) return
+    await saveConfig((prev) => {
+      const mcpServers = { ...(prev.mcpServers || {}) }
+      if (editing && editing !== id) delete mcpServers[editing]
+      mcpServers[id] = {
+        type: form.type.trim() || 'stdio',
+        command: form.command.trim(),
+        args: parseList(form.args),
+        env: parseKeyValues(form.env),
+        url: form.url.trim(),
+        headers: parseKeyValues(form.headers),
+      }
+      return { ...prev, mcpServers }
+    })
+    handleCancel()
+  }
+  const handleDelete = async (id) => {
+    await saveConfig((prev) => {
+      const mcpServers = { ...(prev.mcpServers || {}) }
+      delete mcpServers[id]
+      return { ...prev, mcpServers }
+    })
+  }
+
+  const editor = (
+    <div className="space-y-2">
+      <div className="grid gap-2 md:grid-cols-2">
+        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Server ID" className={inputClass} autoFocus />
+        <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
+          <option value="stdio">stdio</option>
+          <option value="http">http</option>
+          <option value="sse">sse</option>
+        </select>
+        <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
+        <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+        <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
+      </div>
+      <textarea value={form.env} onChange={(e) => setForm((f) => ({ ...f, env: e.target.value }))} placeholder="ENV_KEY=value" className={textAreaClass} />
+      <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">MCP Servers</h2>
-      <p className="text-sm text-muted-foreground">
-        Manage Model Context Protocol servers for tool integrations.
-      </p>
-      <div className="rounded-lg border bg-card p-6">
-        <p className="text-sm text-muted-foreground">Coming soon...</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">MCP Servers</h2>
+          <p className="text-sm text-muted-foreground">Manage MCP servers in {path || '~/.miya/config.json'}.</p>
+        </div>
+        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+          <Plus className="size-3.5 mr-1" /> Add Server
+        </Button>
       </div>
+      <div className="rounded-lg border bg-card divide-y">
+        {servers.map((server) => (
+          <div key={server.id} className="px-4 py-3">
+            {editing === server.id ? editor : (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{server.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{server.type || 'stdio'} / {server.url || [server.command, ...(server.args || [])].filter(Boolean).join(' ') || 'not configured'}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(server)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(server.id)}><Trash2 className="size-3" /></Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {servers.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No MCP servers configured</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
+      </div>
+      <ConfigError error={error} />
+    </div>
+  )
+}
+
+function ChannelsSettings() {
+  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const channels = entriesOf(config.channels)
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [localError, setLocalError] = useState(null)
+  const [form, setForm] = useState({ id: '', json: '{}' })
+
+  const reset = () => { setForm({ id: '', json: '{}' }); setLocalError(null) }
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
+  const startEdit = (channel) => {
+    setAdding(false)
+    setEditing(channel.id)
+    setLocalError(null)
+    const { id, ...value } = channel
+    setForm({ id, json: rawToText(value) })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    const id = form.id.trim()
+    if (!id) return
+    let value
+    try {
+      value = JSON.parse(form.json || '{}')
+    } catch (err) {
+      setLocalError(err.toString())
+      return
+    }
+    await saveConfig((prev) => {
+      const channels = { ...(prev.channels || {}) }
+      if (editing && editing !== id) delete channels[editing]
+      channels[id] = value
+      return { ...prev, channels }
+    })
+    handleCancel()
+  }
+  const handleDelete = async (id) => {
+    await saveConfig((prev) => {
+      const channels = { ...(prev.channels || {}) }
+      delete channels[id]
+      return { ...prev, channels }
+    })
+  }
+
+  const editor = (
+    <div className="space-y-2">
+      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Channel ID, e.g. telegram" className={inputClass} autoFocus />
+      <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder='{"botToken":"...","chatId":"..."}' className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+      </div>
+      <ConfigError error={localError} />
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Channels</h2>
+          <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
+        </div>
+        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+          <Plus className="size-3.5 mr-1" /> Add Channel
+        </Button>
+      </div>
+      <div className="rounded-lg border bg-card divide-y">
+        {channels.map((channel) => (
+          <div key={channel.id} className="px-4 py-3">
+            {editing === channel.id ? editor : (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{channel.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{rawToText(channel).replace(/\s+/g, ' ')}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(channel)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(channel.id)}><Trash2 className="size-3" /></Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {channels.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No channels configured</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
+      </div>
+      <ConfigError error={error} />
     </div>
   )
 }
@@ -431,6 +598,7 @@ const settingsContent = {
   agents: AgentsSettings,
   providers: ProvidersSettings,
   mcp: McpSettings,
+  channels: ChannelsSettings,
   appearance: AppearanceSettings,
   about: AboutSettings,
 }

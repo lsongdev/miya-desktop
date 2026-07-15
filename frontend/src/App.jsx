@@ -16,6 +16,7 @@ import { MessageSquare, Settings as SettingsIcon } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
+import { MiyaConfigProvider } from './context/MiyaConfigContext';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 
@@ -84,16 +85,18 @@ export default function App() {
   return (
     <ThemeProvider>
       <ProviderProvider>
-        <AgentProvider>
-          <SidebarProvider defaultOpen={false}>
-            <AppSidebar activePage={activePage} onNavigate={setActivePage} />
-            <SidebarInset className="min-w-0 overflow-hidden">
-              <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
-                {ActivePage && <ActivePage />}
-              </main>
-            </SidebarInset>
-          </SidebarProvider>
-        </AgentProvider>
+        <MiyaConfigProvider>
+          <AgentProvider>
+            <SidebarProvider defaultOpen={false}>
+              <AppSidebar activePage={activePage} onNavigate={setActivePage} />
+              <SidebarInset className="min-w-0 overflow-hidden">
+                <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
+                  {ActivePage && <ActivePage />}
+                </main>
+              </SidebarInset>
+            </SidebarProvider>
+          </AgentProvider>
+        </MiyaConfigProvider>
       </ProviderProvider>
     </ThemeProvider>
   );

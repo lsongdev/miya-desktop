@@ -315,6 +315,130 @@ export namespace agent {
 
 }
 
+export namespace config {
+
+	export class ACPConfig {
+	    command: string;
+	    args?: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new ACPConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.command = source["command"];
+	        this.args = source["args"];
+	    }
+	}
+	export class AgentConfig {
+	    provider: string;
+	    model?: string;
+	    workspace?: string;
+	    maxTokens?: number;
+	    temperature?: number;
+	    contextWindowTokens?: number;
+	    contextWarnRatio?: number;
+
+	    static createFrom(source: any = {}) {
+	        return new AgentConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.provider = source["provider"];
+	        this.model = source["model"];
+	        this.workspace = source["workspace"];
+	        this.maxTokens = source["maxTokens"];
+	        this.temperature = source["temperature"];
+	        this.contextWindowTokens = source["contextWindowTokens"];
+	        this.contextWarnRatio = source["contextWarnRatio"];
+	    }
+	}
+	export class McpServerConfig {
+	    type?: string;
+	    command?: string;
+	    args?: string[];
+	    env?: Record<string, string>;
+	    url?: string;
+	    headers?: Record<string, string>;
+
+	    static createFrom(source: any = {}) {
+	        return new McpServerConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.command = source["command"];
+	        this.args = source["args"];
+	        this.env = source["env"];
+	        this.url = source["url"];
+	        this.headers = source["headers"];
+	    }
+	}
+	export class ProviderConfig {
+	    apiKey: string;
+	    apiBase?: string;
+	    type?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProviderConfig(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.apiKey = source["apiKey"];
+	        this.apiBase = source["apiBase"];
+	        this.type = source["type"];
+	    }
+	}
+	export class Config {
+	    agents?: Record<string, AgentConfig>;
+	    providers?: Record<string, ProviderConfig>;
+	    mcpServers?: Record<string, McpServerConfig>;
+	    acp?: ACPConfig;
+	    channels?: Record<string, any>;
+	    tools?: Record<string, any>;
+	    logging?: Record<string, any>;
+
+	    static createFrom(source: any = {}) {
+	        return new Config(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.agents = this.convertValues(source["agents"], AgentConfig, true);
+	        this.providers = this.convertValues(source["providers"], ProviderConfig, true);
+	        this.mcpServers = this.convertValues(source["mcpServers"], McpServerConfig, true);
+	        this.acp = this.convertValues(source["acp"], ACPConfig);
+	        this.channels = source["channels"];
+	        this.tools = source["tools"];
+	        this.logging = source["logging"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+
+}
+
 export namespace conversation {
 
 	export class Block {

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
 import { ConnectAgent, InitializeAgent, DisconnectAgent } from '../../wailsjs/go/main/App'
+import { useMiyaConfig } from './MiyaConfigContext'
 
 const AgentContext = createContext(null)
 
@@ -9,6 +10,12 @@ const SELECTED_KEY = 'miya-selected-agent'
 const DEFAULT_AGENTS = [
   { id: 'opencode', name: 'OpenCode', command: 'opencode acp' },
 ]
+
+function commandFromACP(acp) {
+  const command = acp?.command?.trim()
+  if (!command) return 'miya acp'
+  return [command, ...(acp.args || [])].join(' ')
+}
 
 function loadAgents() {
   try {
@@ -31,12 +38,18 @@ function saveSelectedId(id) {
 }
 
 export function AgentProvider({ children }) {
-  const [agents, setAgents] = useState(loadAgents)
+  const { config } = useMiyaConfig()
+  const [localAgents, setLocalAgents] = useState(loadAgents)
   const [selectedAgentId, setSelectedAgentIdState] = useState(loadSelectedId)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [agentInfo, setAgentInfo] = useState(null)
   const [error, setError] = useState(null)
+
+  const agents = useMemo(() => {
+    const miyaAgent = { id: 'miya-agents', name: 'Miya Agents', command: commandFromACP(config.acp) }
+    return [miyaAgent, ...localAgents.filter((agent) => agent.id !== miyaAgent.id)]
+  }, [config.acp, localAgents])
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null
 
@@ -46,7 +59,7 @@ export function AgentProvider({ children }) {
   }, [])
 
   const addAgent = useCallback((agent) => {
-    setAgents((prev) => {
+    setLocalAgents((prev) => {
       const next = [...prev, agent]
       saveAgents(next)
       return next
@@ -54,7 +67,7 @@ export function AgentProvider({ children }) {
   }, [])
 
   const updateAgent = useCallback((id, updates) => {
-    setAgents((prev) => {
+    setLocalAgents((prev) => {
       const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
       saveAgents(next)
       return next
@@ -62,7 +75,7 @@ export function AgentProvider({ children }) {
   }, [])
 
   const removeAgent = useCallback((id) => {
-    setAgents((prev) => {
+    setLocalAgents((prev) => {
       const next = prev.filter((a) => a.id !== id)
       saveAgents(next)
       return next

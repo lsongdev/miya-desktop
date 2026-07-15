@@ -46,12 +46,24 @@ export function ListSessions() {
   return window['go']['main']['App']['ListSessions']();
 }
 
+export function LoadMiyaConfig() {
+  return window['go']['main']['App']['LoadMiyaConfig']();
+}
+
 export function LoadSession(arg1, arg2) {
   return window['go']['main']['App']['LoadSession'](arg1, arg2);
 }
 
+export function MiyaConfigPath() {
+  return window['go']['main']['App']['MiyaConfigPath']();
+}
+
 export function ReconnectAgent() {
   return window['go']['main']['App']['ReconnectAgent']();
+}
+
+export function SaveMiyaConfig(arg1) {
+  return window['go']['main']['App']['SaveMiyaConfig'](arg1);
 }
 
 export function SendPrompt(arg1, arg2) {

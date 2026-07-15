@@ -6,12 +6,14 @@ import (
 	"os"
 
 	"wails-app/internal/agent"
+	miyaconfig "wails-app/internal/config"
 )
 
 // App struct
 type App struct {
 	ctx     context.Context
 	manager *agent.Manager
+	config  *miyaconfig.Service
 }
 
 // NewApp creates a new App application struct
@@ -24,6 +26,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.manager = agent.New(ctx)
+	a.config = miyaconfig.NewService()
 }
 
 // Greet returns a greeting for the given name
@@ -89,4 +92,16 @@ func (a *App) DisconnectAgent() error {
 
 func (a *App) ReconnectAgent() error {
 	return a.manager.Reconnect()
+}
+
+func (a *App) MiyaConfigPath() string {
+	return a.config.Path()
+}
+
+func (a *App) LoadMiyaConfig() (*miyaconfig.Config, error) {
+	return a.config.Load()
+}
+
+func (a *App) SaveMiyaConfig(cfg *miyaconfig.Config) error {
+	return a.config.Save(cfg)
 }
