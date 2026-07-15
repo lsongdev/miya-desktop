@@ -49,6 +49,7 @@ Agents are externally callable ACP endpoints.
     {
       "id": "miya",
       "name": "Miya Agents",
+      "enabled": true,
       "type": "stdio",
       "command": "miya",
       "args": ["acp"]

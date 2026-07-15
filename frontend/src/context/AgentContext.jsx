@@ -26,7 +26,7 @@ function normalizeAgent(agent) {
 }
 
 function loadSelectedId() {
-  try { return localStorage.getItem(SELECTED_KEY) || 'opencode' } catch { return 'opencode' }
+  try { return localStorage.getItem(SELECTED_KEY) || '' } catch { return '' }
 }
 
 function saveSelectedId(id) {
@@ -44,7 +44,10 @@ export function AgentProvider({ children }) {
   const agents = useMemo(() => {
     const configured = Array.isArray(config.agents) ? config.agents : []
     const source = configured.length > 0 ? configured : DEFAULT_AGENTS
-    return source.map(normalizeAgent).filter((agent) => agent.id && agent.command)
+    return source
+      .filter((agent) => agent.enabled !== false)
+      .map(normalizeAgent)
+      .filter((agent) => agent.id && agent.command)
   }, [config.agents])
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null
@@ -64,6 +67,7 @@ export function AgentProvider({ children }) {
       await DisconnectAgent().catch(() => {})
       await ConnectAgent(target.command)
       const info = await InitializeAgent('miya-desktop', '0.1.0')
+      if (target.id) setSelectedAgentId(target.id)
       setAgentInfo(info)
       setConnected(true)
     } catch (err) {
