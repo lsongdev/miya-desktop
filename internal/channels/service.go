@@ -114,15 +114,15 @@ func (s *Service) wait(ctx context.Context, cmd *exec.Cmd, label string) {
 }
 
 func newCommand(ctx context.Context) (*exec.Cmd, string, error) {
+	if path, err := exec.LookPath("miya-channels"); err == nil {
+		return exec.CommandContext(ctx, path), path, nil
+	}
 	wd, err := filepath.Abs(filepath.Join("..", "miya-channels"))
 	if err != nil {
 		return nil, "", err
 	}
-	if _, err := os.Stat(filepath.Join(wd, "go.mod")); err != nil {
-		return nil, "", fmt.Errorf("miya-channels repo not found at %s", wd)
-	}
 	if _, err := exec.LookPath("go"); err != nil {
-		return nil, "", fmt.Errorf("go is unavailable for running miya-channels")
+		return nil, "", fmt.Errorf("miya-channels binary not found and go is unavailable")
 	}
 	cmd := exec.CommandContext(ctx, "go", "run", ".")
 	cmd.Dir = wd
