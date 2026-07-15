@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
-import { ConnectAgent, InitializeAgent, DisconnectAgent } from '../../wailsjs/go/main/App'
+import { ConnectAgent, ConnectConfiguredAgent, InitializeAgent, DisconnectAgent } from '../../wailsjs/go/main/App'
 import { useMiyaConfig } from './MiyaConfigContext'
 
 const AgentContext = createContext(null)
@@ -57,7 +57,19 @@ export function AgentProvider({ children }) {
     saveSelectedId(id)
   }, [])
 
-  const connect = useCallback(async (agent) => {
+  const connectOne = useCallback(async (target) => {
+    if (target?.id) {
+      await ConnectConfiguredAgent(target.id)
+    } else {
+      await ConnectAgent(target.command)
+    }
+    const info = await InitializeAgent('miya-desktop', '0.1.0')
+    if (target.id) setSelectedAgentId(target.id)
+    setAgentInfo(info)
+    setConnected(true)
+  }, [setSelectedAgentId])
+
+  const connect = useCallback(async (agent, options = {}) => {
     const target = agent || selectedAgent
     if (!target?.command?.trim()) return
 
@@ -65,11 +77,23 @@ export function AgentProvider({ children }) {
     setError(null)
     try {
       await DisconnectAgent().catch(() => {})
-      await ConnectAgent(target.command)
-      const info = await InitializeAgent('miya-desktop', '0.1.0')
-      if (target.id) setSelectedAgentId(target.id)
-      setAgentInfo(info)
-      setConnected(true)
+      try {
+        await connectOne(target)
+      } catch (err) {
+        if (!options.fallback) throw err
+        const fallbackAgents = agents.filter((candidate) => candidate.id !== target.id)
+        let lastErr = err
+        for (const fallbackAgent of fallbackAgents) {
+          try {
+            await DisconnectAgent().catch(() => {})
+            await connectOne(fallbackAgent)
+            return
+          } catch (fallbackErr) {
+            lastErr = fallbackErr
+          }
+        }
+        throw lastErr
+      }
     } catch (err) {
       setError(err.toString())
       setConnected(false)
@@ -77,7 +101,7 @@ export function AgentProvider({ children }) {
     } finally {
       setConnecting(false)
     }
-  }, [selectedAgent, setSelectedAgentId])
+  }, [agents, connectOne, selectedAgent])
 
   const disconnect = useCallback(async () => {
     try { await DisconnectAgent() } catch {}
@@ -92,7 +116,7 @@ export function AgentProvider({ children }) {
 
   useEffect(() => {
     if (!loading && selectedAgent?.command && !connected && !connecting) {
-      connect()
+      connect(null, { fallback: true })
     }
   }, [loading, selectedAgent?.id, selectedAgent?.command, connected, connecting, connect])
 

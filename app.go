@@ -35,6 +35,18 @@ func (a *App) startup(ctx context.Context) {
 	a.config = miyaconfig.NewService()
 	a.manager = agent.New(ctx, a.config.Load)
 	a.channels = channelservice.NewService(a.config.Load)
+	cfg, err := a.config.Load()
+	if err != nil {
+		log.Printf("[channels] config load failed during auto-start: %v", err)
+		return
+	}
+	if channelsEnabled(cfg) {
+		go func() {
+			if _, err := a.channels.Start(ctx); err != nil {
+				log.Printf("[channels] auto-start failed: %v", err)
+			}
+		}()
+	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -46,6 +58,10 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 }
 
+func channelsEnabled(cfg *miyaconfig.Config) bool {
+	return cfg.ChannelsEnabled == nil || *cfg.ChannelsEnabled
+}
+
 // Greet returns a greeting for the given name
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
@@ -53,6 +69,22 @@ func (a *App) Greet(name string) string {
 
 func (a *App) ConnectAgent(command string) error {
 	return a.manager.Connect(command)
+}
+
+func (a *App) ConnectConfiguredAgent(agentID string) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	for _, endpoint := range cfg.Agents {
+		if endpoint.ID == agentID {
+			if !endpoint.IsEnabled() {
+				return fmt.Errorf("agent %q is disabled", agentID)
+			}
+			return a.manager.ConnectEndpoint(endpoint)
+		}
+	}
+	return fmt.Errorf("agent %q not found", agentID)
 }
 
 func (a *App) InitializeAgent(name, version string) (*agent.AgentInfo, error) {
@@ -102,10 +134,7 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 		if !endpoint.IsEnabled() {
 			continue
 		}
-		if endpoint.Type != "" && endpoint.Type != "stdio" {
-			continue
-		}
-		if strings.TrimSpace(endpoint.Command) == "" {
+		if endpoint.Type != "builtin" && endpoint.Type != "inprocess" && strings.TrimSpace(endpoint.Command) == "" {
 			continue
 		}
 

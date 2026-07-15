@@ -18,6 +18,10 @@ export function ConnectAgent(arg1) {
   return window['go']['main']['App']['ConnectAgent'](arg1);
 }
 
+export function ConnectConfiguredAgent(arg1) {
+  return window['go']['main']['App']['ConnectConfiguredAgent'](arg1);
+}
+
 export function CreateSession(arg1) {
   return window['go']['main']['App']['CreateSession'](arg1);
 }

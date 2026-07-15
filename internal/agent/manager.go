@@ -10,6 +10,7 @@ import (
 
 	"wails-app/internal/acpadapter"
 	"wails-app/internal/agentclient"
+	miyaconfig "wails-app/internal/config"
 	"wails-app/internal/conversation"
 
 	"github.com/lsongdev/miya-agents/acp"
@@ -44,6 +45,7 @@ type Manager struct {
 	mu         sync.Mutex
 	agentInfo  *AgentInfo
 	command    string
+	endpoint   *miyaconfig.ACPAgentConfig
 	initName   string
 	initVer    string
 	store      *conversation.Store
@@ -60,13 +62,33 @@ func (m *Manager) Connect(command string) error {
 	return m.connectLocked(command)
 }
 
+func (m *Manager) ConnectEndpoint(endpoint miyaconfig.ACPAgentConfig) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.connectEndpointLocked(endpoint)
+}
+
 func (m *Manager) connectLocked(command string) error {
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return fmt.Errorf("agent: empty command")
+	}
+	endpoint := miyaconfig.ACPAgentConfig{
+		Type:    "stdio",
+		Command: parts[0],
+		Args:    parts[1:],
+	}
+	return m.connectEndpointLocked(endpoint)
+}
+
+func (m *Manager) connectEndpointLocked(endpoint miyaconfig.ACPAgentConfig) error {
 	if m.client != nil {
 		m.client.Close()
 		m.client = nil
 	}
 
-	client, err := agentclient.NewForCommand(command, m.loadConfig)
+	client, err := agentclient.NewForEndpoint(endpoint, m.loadConfig)
 	if err != nil {
 		return fmt.Errorf("agent: dial: %w", err)
 	}
@@ -76,8 +98,9 @@ func (m *Manager) connectLocked(command string) error {
 	})
 
 	m.client = client
-	m.command = command
-	log.Printf("[agent] Connected to %q", command)
+	m.command = endpointCommand(endpoint)
+	m.endpoint = &endpoint
+	log.Printf("[agent] Connected to %q", m.command)
 	return nil
 }
 
@@ -132,7 +155,11 @@ func (m *Manager) reconnectLocked() error {
 	if m.command == "" {
 		return fmt.Errorf("agent: no command configured")
 	}
-	if err := m.connectLocked(m.command); err != nil {
+	if m.endpoint != nil {
+		if err := m.connectEndpointLocked(*m.endpoint); err != nil {
+			return err
+		}
+	} else if err := m.connectLocked(m.command); err != nil {
 		return err
 	}
 	if m.initName != "" {
@@ -141,6 +168,13 @@ func (m *Manager) reconnectLocked() error {
 		}
 	}
 	return nil
+}
+
+func endpointCommand(endpoint miyaconfig.ACPAgentConfig) string {
+	if endpoint.Command == "" {
+		return endpoint.Type
+	}
+	return strings.Join(append([]string{endpoint.Command}, endpoint.Args...), " ")
 }
 
 // initializeLocked sends the ACP initialize handshake.

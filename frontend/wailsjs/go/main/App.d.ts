@@ -13,6 +13,8 @@ export function CloseSession(arg1:string):Promise<void>;
 
 export function ConnectAgent(arg1:string):Promise<void>;
 
+export function ConnectConfiguredAgent(arg1:string):Promise<void>;
+
 export function CreateSession(arg1:string):Promise<agent.Session>;
 
 export function DefaultCwd():Promise<string>;
