@@ -6,8 +6,9 @@ import { Input } from '../components/ui/input'
 import { ChannelsServiceStatus, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
-  Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2,
+  Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
 } from 'lucide-react'
+import miyaIcon from '../assets/images/miya-icon.png'
 
 const settingsItems = [
   { id: 'general', label: 'General', icon: SettingsIcon },
@@ -700,10 +701,13 @@ function AboutSettings() {
   return (
     <div className="space-y-4">
       <SectionHeader title="About" description="Product information and runtime scope." />
-      <div className="rounded-lg border bg-card p-5 space-y-4">
-        <div>
-          <p className="text-base font-semibold">Miya Desktop</p>
-          <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+      <div className="rounded-lg border bg-card p-5 space-y-5">
+        <div className="flex items-center gap-4">
+          <img src={miyaIcon} alt="" className="size-14 rounded-xl object-cover" />
+          <div>
+            <p className="text-base font-semibold">Miya Desktop</p>
+            <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+          </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
           Miya Desktop is an ACP-native client for managing agent conversations, local agent runtime profiles,
@@ -719,6 +723,20 @@ function AboutSettings() {
             <p className="text-muted-foreground">Wails, React, and ACP</p>
           </div>
         </div>
+        <div className="flex flex-wrap gap-2 text-sm">
+          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-desktop" target="_blank" rel="noreferrer">
+            Desktop <ExternalLink className="size-3.5" />
+          </a>
+          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-agents" target="_blank" rel="noreferrer">
+            Agents <ExternalLink className="size-3.5" />
+          </a>
+          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-channels" target="_blank" rel="noreferrer">
+            Channels <ExternalLink className="size-3.5" />
+          </a>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          License: MIT. Copyright © Lsong.
+        </p>
       </div>
     </div>
   )
