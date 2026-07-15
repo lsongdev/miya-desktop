@@ -2,7 +2,6 @@ package agentclient
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	miyaconfig "wails-app/internal/config"
@@ -53,35 +52,5 @@ func IsBuiltinEndpoint(endpoint miyaconfig.ACPAgentConfig) bool {
 }
 
 func isBuiltin(endpoint miyaconfig.ACPAgentConfig) bool {
-	if endpoint.ID == "miya" {
-		return true
-	}
-	if endpoint.Type == "builtin" || endpoint.Type == "inprocess" {
-		return true
-	}
-	command := filepath.Base(endpoint.Command)
-	if command != "miya" && command != "miya-agent" && command != "miya-agents" {
-		return isGoRunMiyaAgent(endpoint)
-	}
-	if len(endpoint.Args) == 0 {
-		return true
-	}
-	return len(endpoint.Args) == 1 && endpoint.Args[0] == "acp"
-}
-
-func isGoRunMiyaAgent(endpoint miyaconfig.ACPAgentConfig) bool {
-	if filepath.Base(endpoint.Command) != "go" {
-		return false
-	}
-	hasMiyaAgentsDir := false
-	hasACP := false
-	for _, arg := range endpoint.Args {
-		if strings.Contains(arg, "miya-agents") {
-			hasMiyaAgentsDir = true
-		}
-		if arg == "acp" {
-			hasACP = true
-		}
-	}
-	return hasMiyaAgentsDir && hasACP
+	return endpoint.Type == "builtin" || endpoint.Type == "inprocess"
 }

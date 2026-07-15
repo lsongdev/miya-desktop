@@ -20,15 +20,16 @@ function sessionKey(session) {
   return session?.key || session?.id || ''
 }
 
-function groupSessions(sessions) {
+function groupSessions(sessions, agents) {
   const groups = []
   const byAgent = new Map()
+  const agentNames = new Map(agents.map((agent) => [agent.id, agent.name || agent.id]))
   for (const session of sessions) {
     const agentId = session.agentId || 'unknown'
     if (!byAgent.has(agentId)) {
       const group = {
         id: agentId,
-        name: session.agentName || agentId,
+        name: agentNames.get(agentId) || session.agentName || agentId,
         sessions: [],
       }
       byAgent.set(agentId, group)
@@ -140,14 +141,15 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     }
   }
 
-  const groups = groupSessions(sessions)
+  const groups = groupSessions(sessions, agents)
+  const showAgentMenu = agents.length > 1
 
   return (
     <div className="flex flex-col h-full border-r bg-card">
       <div className="shrink-0 p-3 border-b">
         <div className="relative flex">
           <Button
-            className="flex-1 rounded-r-none border-r border-primary-foreground/20"
+            className={`flex-1 ${showAgentMenu ? 'rounded-r-none border-r border-primary-foreground/20' : ''}`}
             size="sm"
             onClick={() => handleNewSession(agents.find((agent) => agent.id === currentAgentId) || agents[0])}
             disabled={creating || agents.length === 0}
@@ -155,16 +157,18 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
             {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
             New Session
           </Button>
-          <Button
-            size="icon-sm"
-            className="rounded-l-none border-l-0 px-2"
-            onClick={() => setMenuOpen((open) => !open)}
-            disabled={creating || agents.length <= 1}
-            title="Choose agent"
-          >
-            <ChevronDown className="size-3.5" />
-          </Button>
-          {menuOpen && (
+          {showAgentMenu && (
+            <Button
+              size="icon-sm"
+              className="rounded-l-none border-l-0 px-2"
+              onClick={() => setMenuOpen((open) => !open)}
+              disabled={creating}
+              title="Choose agent"
+            >
+              <ChevronDown className="size-3.5" />
+            </Button>
+          )}
+          {showAgentMenu && menuOpen && (
             <div className="absolute left-0 right-0 top-8 z-20 rounded-md border bg-popover p-1 shadow-md">
               {agents.map((agent) => (
                 <button

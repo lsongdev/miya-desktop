@@ -129,7 +129,9 @@ function GeneralSettings() {
 
 function AgentsSettings() {
   const { config, saveConfig, saving, error } = useMiyaConfig()
-  const agents = Array.isArray(config.agents) ? config.agents : []
+  const builtinAgent = { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'], builtin: true, enabled: true }
+  const configuredAgents = Array.isArray(config.agents) ? config.agents : []
+  const agents = [builtinAgent, ...configuredAgents.filter((agent) => agent.id !== builtinAgent.id)]
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ id: '', name: '', enabled: true, type: 'stdio', command: '', args: '', url: '', headers: '' })
@@ -186,10 +188,7 @@ function AgentsSettings() {
         <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
         <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} />
         <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
-          <option value="builtin">builtin</option>
           <option value="stdio">stdio</option>
-          <option value="http">http</option>
-          <option value="sse">sse</option>
         </select>
         <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
         <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
@@ -220,7 +219,10 @@ function AgentsSettings() {
             {editing === agent.id ? editor : (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm">{agent.name || agent.id}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm">{agent.name || agent.id}</p>
+                    {agent.builtin && <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Built in</span>}
+                  </div>
                   <p className="text-xs text-muted-foreground font-mono truncate">
                     {agent.type || 'stdio'} / {commandFromAgent(agent)}
                   </p>
@@ -229,11 +231,15 @@ function AgentsSettings() {
                   <Switch
                     checked={agent.enabled !== false}
                     onChange={(enabled) => handleToggleEnabled(agent.id, enabled)}
-                    disabled={saving}
+                    disabled={saving || agent.builtin}
                     label={`Enable ${agent.name || agent.id}`}
                   />
-                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
-                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
+                  {!agent.builtin && (
+                    <>
+                      <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
+                      <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

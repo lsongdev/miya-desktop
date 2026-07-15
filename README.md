@@ -67,27 +67,29 @@ Miya Desktop reads and writes the shared Miya config file:
 
 Important top-level sections:
 
-- `agents`: ACP endpoints used by the desktop client.
+- `agents`: external stdio ACP endpoints used by the desktop client.
 - `profiles`: Miya agent runtime profiles.
 - `providers`: model provider credentials and base URLs.
 - `mcpServers`: MCP tool server definitions.
 - `channels`: channel gateway configuration.
 - `channelsEnabled`: desktop preference for auto-starting the embedded channel service.
 
-Example agent endpoint:
+The built-in Miya agent is owned by Miya Desktop and does not need to be declared in `agents`.
+
+Example external ACP endpoint:
 
 ```json
 {
-  "id": "miya",
-  "name": "Miya Agents",
+  "id": "opencode",
+  "name": "OpenCode",
   "enabled": true,
-  "type": "builtin",
-  "command": "miya-agent",
+  "type": "stdio",
+  "command": "opencode",
   "args": ["acp"]
 }
 ```
 
-Existing development configs such as `go -C .../miya-agents run . acp` are recognized as the built-in Miya agent when the endpoint id is `miya`.
+Miya Desktop injects the built-in `Miya Agents` endpoint at runtime. This keeps the config file focused on external ACP tools.
 
 ## Development
 
