@@ -520,6 +520,7 @@ function McpSettings() {
 function ChannelsSettings() {
   const { config, path, saveConfig, saving, error } = useMiyaConfig()
   const channels = entriesOf(config.channels)
+  // TODO: Move this desktop-local preference out of shared ~/.miya/config.json.
   const channelsEnabled = config.channelsEnabled !== false
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
