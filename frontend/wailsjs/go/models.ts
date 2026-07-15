@@ -1,14 +1,14 @@
 export namespace acp {
-	
+
 	export class Annotations {
 	    audience?: string[];
 	    priority?: number;
 	    lastModified?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Annotations(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.audience = source["audience"];
@@ -28,11 +28,11 @@ export namespace acp {
 	    title?: string;
 	    resource?: number[];
 	    annotations?: Annotations;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ContentBlock(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -47,7 +47,7 @@ export namespace acp {
 	        this.resource = source["resource"];
 	        this.annotations = this.convertValues(source["annotations"], Annotations);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -69,11 +69,11 @@ export namespace acp {
 	export class Cost {
 	    amount: number;
 	    currency: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Cost(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.amount = source["amount"];
@@ -82,11 +82,11 @@ export namespace acp {
 	}
 	export class CurrentModeUpdate {
 	    currentModeId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new CurrentModeUpdate(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.currentModeId = source["currentModeId"];
@@ -96,11 +96,11 @@ export namespace acp {
 	    content: string;
 	    status: string;
 	    priority: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PlanEntry(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.content = source["content"];
@@ -110,16 +110,16 @@ export namespace acp {
 	}
 	export class Plan {
 	    entries: PlanEntry[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Plan(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.entries = this.convertValues(source["entries"], PlanEntry);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -138,15 +138,15 @@ export namespace acp {
 		    return a;
 		}
 	}
-	
+
 	export class ToolCallLocation {
 	    path: string;
 	    line?: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ToolCallLocation(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -160,11 +160,11 @@ export namespace acp {
 	    oldText?: string;
 	    newText?: string;
 	    terminalId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ToolCallContent(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -174,7 +174,7 @@ export namespace acp {
 	        this.newText = source["newText"];
 	        this.terminalId = source["terminalId"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -202,11 +202,11 @@ export namespace acp {
 	    locations: ToolCallLocation[];
 	    rawInput: number[];
 	    rawOutput: number[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ToolCall(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.toolCallId = source["toolCallId"];
@@ -218,7 +218,7 @@ export namespace acp {
 	        this.rawInput = source["rawInput"];
 	        this.rawOutput = source["rawOutput"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -237,24 +237,24 @@ export namespace acp {
 		    return a;
 		}
 	}
-	
-	
+
+
 	export class UsageUpdate {
 	    size: number;
 	    used: number;
 	    cost?: Cost;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new UsageUpdate(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.size = source["size"];
 	        this.used = source["used"];
 	        this.cost = this.convertValues(source["cost"], Cost);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -277,16 +277,16 @@ export namespace acp {
 }
 
 export namespace agent {
-	
+
 	export class AgentInfo {
 	    name: string;
 	    version: string;
 	    loadSession: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new AgentInfo(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -299,11 +299,11 @@ export namespace agent {
 	    cwd: string;
 	    title?: string;
 	    updatedAt?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Session(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -316,17 +316,17 @@ export namespace agent {
 }
 
 export namespace channels {
-	
+
 	export class Status {
 	    running: boolean;
 	    command?: string;
 	    pid?: number;
 	    error?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Status(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.running = source["running"];
@@ -339,7 +339,7 @@ export namespace channels {
 }
 
 export namespace config {
-	
+
 	export class ACPAgentConfig {
 	    id: string;
 	    name?: string;
@@ -349,11 +349,11 @@ export namespace config {
 	    args?: string[];
 	    url?: string;
 	    headers?: Record<string, string>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ACPAgentConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -371,11 +371,11 @@ export namespace config {
 	    level?: string;
 	    stdout?: boolean;
 	    file?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LoggingConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.enabled = source["enabled"];
@@ -388,11 +388,11 @@ export namespace config {
 	    apiKey: string;
 	    apiBase?: string;
 	    type?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ProviderConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.apiKey = source["apiKey"];
@@ -408,11 +408,11 @@ export namespace config {
 	    temperature?: number;
 	    contextWindowTokens?: number;
 	    contextWarnRatio?: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ProfileConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.provider = source["provider"];
@@ -430,13 +430,14 @@ export namespace config {
 	    providers: Record<string, ProviderConfig>;
 	    mcpServers?: Record<string, mcp.McpServerConfig>;
 	    channels?: Record<string, any>;
+	    channelsEnabled?: boolean;
 	    tools?: Record<string, Array<number>>;
 	    logging?: LoggingConfig;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.agents = this.convertValues(source["agents"], ACPAgentConfig);
@@ -444,10 +445,11 @@ export namespace config {
 	        this.providers = this.convertValues(source["providers"], ProviderConfig, true);
 	        this.mcpServers = this.convertValues(source["mcpServers"], mcp.McpServerConfig, true);
 	        this.channels = source["channels"];
+	        this.channelsEnabled = source["channelsEnabled"];
 	        this.tools = source["tools"];
 	        this.logging = this.convertValues(source["logging"], LoggingConfig);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -466,13 +468,13 @@ export namespace config {
 		    return a;
 		}
 	}
-	
-	
+
+
 
 }
 
 export namespace conversation {
-	
+
 	export class Block {
 	    id: string;
 	    type: string;
@@ -482,11 +484,11 @@ export namespace conversation {
 	    tool?: acp.ToolCall;
 	    plan?: acp.Plan;
 	    raw?: number[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Block(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -498,7 +500,7 @@ export namespace conversation {
 	        this.plan = this.convertValues(source["plan"], acp.Plan);
 	        this.raw = source["raw"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -526,11 +528,11 @@ export namespace conversation {
 	    status: string;
 	    createdAt: string;
 	    updatedAt: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Message(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -542,7 +544,7 @@ export namespace conversation {
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -566,11 +568,11 @@ export namespace conversation {
 	    channel?: string;
 	    accountId?: string;
 	    threadId?: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Source(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];
@@ -591,11 +593,11 @@ export namespace conversation {
 	    mode?: acp.CurrentModeUpdate;
 	    updatedAt: string;
 	    createdAt: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Conversation(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
@@ -610,7 +612,7 @@ export namespace conversation {
 	        this.updatedAt = source["updatedAt"];
 	        this.createdAt = source["createdAt"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -629,12 +631,12 @@ export namespace conversation {
 		    return a;
 		}
 	}
-	
+
 
 }
 
 export namespace mcp {
-	
+
 	export class McpServerConfig {
 	    type?: string;
 	    command?: string;
@@ -642,11 +644,11 @@ export namespace mcp {
 	    env?: Record<string, string>;
 	    url?: string;
 	    headers?: Record<string, string>;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new McpServerConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.type = source["type"];

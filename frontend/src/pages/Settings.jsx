@@ -64,6 +64,28 @@ function ConfigError({ error }) {
   return <p className="text-xs text-destructive">{error}</p>
 }
 
+function Switch({ checked, onChange, disabled, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange?.(!checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+        checked ? 'bg-primary' : 'bg-muted-foreground/30'
+      }`}
+    >
+      <span
+        className={`inline-block size-4 rounded-full bg-background shadow transition-transform ${
+          checked ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  )
+}
+
 function GeneralSettings() {
   return (
     <div className="space-y-4">
@@ -119,6 +141,12 @@ function AgentsSettings() {
   const handleDelete = async (id) => {
     await saveConfig((prev) => ({ ...prev, agents: (prev.agents || []).filter((agent) => agent.id !== id) }))
   }
+  const handleToggleEnabled = async (id, enabled) => {
+    await saveConfig((prev) => ({
+      ...prev,
+      agents: (prev.agents || []).map((agent) => (agent.id === id ? { ...agent, enabled } : agent)),
+    }))
+  }
 
   const editor = (
     <div className="space-y-2">
@@ -134,15 +162,6 @@ function AgentsSettings() {
         <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
         <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={form.enabled}
-          onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
-          className="size-4"
-        />
-        Enable for new chat sessions
-      </label>
       <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
       <div className="flex gap-1.5">
         <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
@@ -170,10 +189,16 @@ function AgentsSettings() {
                 <div className="min-w-0">
                   <p className="font-medium text-sm">{agent.name || agent.id}</p>
                   <p className="text-xs text-muted-foreground font-mono truncate">
-                    {agent.enabled === false ? 'disabled' : 'enabled'} / {agent.type || 'stdio'} / {commandFromAgent(agent)}
+                    {agent.type || 'stdio'} / {commandFromAgent(agent)}
                   </p>
                 </div>
-                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Switch
+                    checked={agent.enabled !== false}
+                    onChange={(enabled) => handleToggleEnabled(agent.id, enabled)}
+                    disabled={saving}
+                    label={`Enable ${agent.name || agent.id}`}
+                  />
                   <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
                   <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
                 </div>
@@ -495,6 +520,7 @@ function McpSettings() {
 function ChannelsSettings() {
   const { config, path, saveConfig, saving, error } = useMiyaConfig()
   const channels = entriesOf(config.channels)
+  const channelsEnabled = config.channelsEnabled !== false
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [localError, setLocalError] = useState(null)
@@ -552,6 +578,9 @@ function ChannelsSettings() {
       return { ...prev, channels }
     })
   }
+  const toggleChannelsEnabled = async (enabled) => {
+    await saveConfig((prev) => ({ ...prev, channelsEnabled: enabled }))
+  }
 
   const toggleService = async () => {
     setServiceBusy(true)
@@ -585,12 +614,16 @@ function ChannelsSettings() {
     <div className="space-y-4">
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Channels</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Channels</h2>
+            <Switch
+              checked={channelsEnabled}
+              onChange={toggleChannelsEnabled}
+              disabled={saving}
+              label="Enable channels"
+            />
+          </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant={service.running ? 'outline' : 'default'} onClick={toggleService} disabled={serviceBusy}>
-              {serviceBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}
-              {service.running ? 'Stop Service' : 'Start Service'}
-            </Button>
             <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
               <Plus className="size-3.5 mr-1" /> Add Channel
             </Button>
@@ -599,13 +632,21 @@ function ChannelsSettings() {
         <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
       </div>
       <div className="rounded-lg border bg-card px-4 py-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className={`size-2 rounded-full ${service.running ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
-          <span className="font-medium">{service.running ? 'Service running' : 'Service stopped'}</span>
-          {service.pid ? <span className="text-muted-foreground">PID {service.pid}</span> : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`size-2 rounded-full ${service.running ? 'bg-green-500' : 'bg-muted-foreground/30'}`} />
+              <span className="font-medium">{service.running ? 'Service running' : 'Service stopped'}</span>
+              {service.pid ? <span className="text-muted-foreground">PID {service.pid}</span> : null}
+            </div>
+            {service.command && <p className="mt-1 truncate font-mono text-muted-foreground">{service.command}</p>}
+            {service.error && <p className="mt-1 text-destructive">{service.error}</p>}
+          </div>
+          <Button size="sm" variant={service.running ? 'outline' : 'default'} onClick={toggleService} disabled={serviceBusy || !channelsEnabled}>
+            {serviceBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+            {service.running ? 'Stop Service' : 'Start Service'}
+          </Button>
         </div>
-        {service.command && <p className="mt-1 truncate font-mono text-muted-foreground">{service.command}</p>}
-        {service.error && <p className="mt-1 text-destructive">{service.error}</p>}
       </div>
       <div className="rounded-lg border bg-card divide-y">
         {channels.map((channel) => (
