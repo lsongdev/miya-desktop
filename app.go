@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"wails-app/internal/agent"
 )
@@ -40,6 +41,18 @@ func (a *App) InitializeAgent(name, version string) (*agent.AgentInfo, error) {
 
 func (a *App) CreateSession(cwd string) (*agent.Session, error) {
 	return a.manager.NewSession(cwd)
+}
+
+func (a *App) DefaultCwd() string {
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		return home
+	}
+	cwd, err := os.Getwd()
+	if err == nil && cwd != "" {
+		return cwd
+	}
+	return "."
 }
 
 func (a *App) LoadSession(sessionID, cwd string) error {

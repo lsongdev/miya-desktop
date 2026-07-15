@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   CreateSession,
+  DefaultCwd,
   ListSessions,
   CloseSession,
   DeleteSession,
@@ -47,7 +48,8 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const handleNewSession = async () => {
     setCreating(true)
     try {
-      const session = await CreateSession('/tmp')
+      const cwd = await DefaultCwd()
+      const session = await CreateSession(cwd)
       await fetchSessions()
       ;(onNewSessionProp || onSelectSession)(session)
     } catch (err) {

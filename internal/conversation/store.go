@@ -32,7 +32,7 @@ func (s *Store) RegisterSession(sessionID, cwd string) Snapshot {
 	if cwd != "" {
 		conv.Cwd = cwd
 	}
-	conv.UpdatedAt = s.now()
+	conv.UpdatedAt = s.nowString()
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_registered"}
 }
 
@@ -52,7 +52,7 @@ func (s *Store) AddLocalUserMessage(sessionID, text string) Snapshot {
 	defer s.mu.Unlock()
 
 	conv := s.ensureConversationLocked(sessionID)
-	now := s.now()
+	now := s.nowString()
 	s.closeStreamingLocked(conv)
 	msg := Message{
 		ID:             s.nextIDStringLocked("msg"),
@@ -83,7 +83,7 @@ func (s *Store) CompleteStreaming(sessionID string) (Snapshot, bool) {
 		return Snapshot{}, false
 	}
 	changed := s.closeStreamingLocked(conv)
-	conv.UpdatedAt = s.now()
+	conv.UpdatedAt = s.nowString()
 	if !changed {
 		return Snapshot{Conversation: cloneConversation(*conv), EventType: "snapshot"}, true
 	}
@@ -95,7 +95,7 @@ func (s *Store) ApplyACPEvent(sessionID string, event *acpadapter.Event) Snapsho
 	defer s.mu.Unlock()
 
 	conv := s.ensureConversationLocked(sessionID)
-	now := s.now()
+	now := s.nowString()
 
 	switch event.Type {
 	case "user_message_chunk", "agent_message_chunk":
@@ -139,7 +139,7 @@ func (s *Store) ApplyACPEvent(sessionID string, event *acpadapter.Event) Snapsho
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: event.Type}
 }
 
-func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType string, event *acpadapter.Event, now time.Time) {
+func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType string, event *acpadapter.Event, now string) {
 	if event.Content == nil {
 		return
 	}
@@ -168,7 +168,7 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 	msg.UpdatedAt = now
 }
 
-func (s *Store) messageForChunkLocked(conv *Conversation, role, protocolMessageID string, now time.Time) *Message {
+func (s *Store) messageForChunkLocked(conv *Conversation, role, protocolMessageID string, now string) *Message {
 	if len(conv.Messages) > 0 {
 		last := &conv.Messages[len(conv.Messages)-1]
 		if last.Role == role && last.Status == MessageStreaming {
@@ -195,7 +195,7 @@ func (s *Store) messageForChunkLocked(conv *Conversation, role, protocolMessageI
 	return &conv.Messages[len(conv.Messages)-1]
 }
 
-func (s *Store) currentAssistantMessageLocked(conv *Conversation, now time.Time) *Message {
+func (s *Store) currentAssistantMessageLocked(conv *Conversation, now string) *Message {
 	if len(conv.Messages) > 0 {
 		last := &conv.Messages[len(conv.Messages)-1]
 		if last.Role == RoleAssistant && last.Status == MessageStreaming {
@@ -252,7 +252,7 @@ func (s *Store) upsertToolBlockLocked(msg *Message, tool *acp.ToolCall, raw []by
 	})
 }
 
-func (s *Store) updateToolBlockLocked(conv *Conversation, tool *acp.ToolCall, raw []byte, now time.Time) {
+func (s *Store) updateToolBlockLocked(conv *Conversation, tool *acp.ToolCall, raw []byte, now string) {
 	for mi := range conv.Messages {
 		msg := &conv.Messages[mi]
 		for bi := range msg.Blocks {
@@ -291,7 +291,7 @@ func (s *Store) closeStreamingLocked(conv *Conversation) bool {
 	for i := range conv.Messages {
 		if conv.Messages[i].Status == MessageStreaming {
 			conv.Messages[i].Status = MessageComplete
-			conv.Messages[i].UpdatedAt = s.now()
+			conv.Messages[i].UpdatedAt = s.nowString()
 			changed = true
 		}
 	}
@@ -302,7 +302,7 @@ func (s *Store) ensureConversationLocked(sessionID string) *Conversation {
 	if conv, ok := s.conversations[sessionID]; ok {
 		return conv
 	}
-	now := s.now()
+	now := s.nowString()
 	conv := &Conversation{
 		ID:           sessionID,
 		ACPSessionID: sessionID,
@@ -312,6 +312,10 @@ func (s *Store) ensureConversationLocked(sessionID string) *Conversation {
 	}
 	s.conversations[sessionID] = conv
 	return conv
+}
+
+func (s *Store) nowString() string {
+	return s.now().Format(time.RFC3339Nano)
 }
 
 func (s *Store) nextIDStringLocked(prefix string) string {

@@ -2,7 +2,6 @@ package conversation
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/lsongdev/miya-agents/acp"
 )
@@ -35,8 +34,8 @@ type Conversation struct {
 	Messages     []Message              `json:"messages"`
 	Usage        *acp.UsageUpdate       `json:"usage,omitempty"`
 	Mode         *acp.CurrentModeUpdate `json:"mode,omitempty"`
-	UpdatedAt    time.Time              `json:"updatedAt"`
-	CreatedAt    time.Time              `json:"createdAt"`
+	UpdatedAt    string                 `json:"updatedAt"`
+	CreatedAt    string                 `json:"createdAt"`
 }
 
 type Source struct {
@@ -47,14 +46,14 @@ type Source struct {
 }
 
 type Message struct {
-	ID                string    `json:"id"`
-	ConversationID    string    `json:"conversationId"`
-	Role              string    `json:"role"`
-	ProtocolMessageID string    `json:"protocolMessageId,omitempty"`
-	Blocks            []Block   `json:"blocks"`
-	Status            string    `json:"status"`
-	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedAt         time.Time `json:"updatedAt"`
+	ID                string  `json:"id"`
+	ConversationID    string  `json:"conversationId"`
+	Role              string  `json:"role"`
+	ProtocolMessageID string  `json:"protocolMessageId,omitempty"`
+	Blocks            []Block `json:"blocks"`
+	Status            string  `json:"status"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         string  `json:"updatedAt"`
 }
 
 type Block struct {

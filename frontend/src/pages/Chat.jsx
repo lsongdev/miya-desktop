@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
+import { DefaultCwd, SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime'
 import {
   Send,
@@ -125,7 +125,8 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
       loadedRef.current = true
       setLoading(true)
       setConversation(null)
-      LoadSession(sessionId, session.cwd || '/tmp')
+      Promise.resolve(session.cwd || DefaultCwd())
+        .then((cwd) => LoadSession(sessionId, cwd))
         .catch((err) => {
           setError(err.toString())
         })
