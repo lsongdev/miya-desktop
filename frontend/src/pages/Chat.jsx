@@ -3,10 +3,11 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { DefaultCwd, SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
+import { CancelSession, DefaultCwd, SendPrompt, LoadSession } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime'
 import {
   Send,
+  Square,
   Loader2,
   User,
   Bot,
@@ -176,6 +177,15 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     }
   }
 
+  const handleCancel = async () => {
+    if (!streaming) return
+    try {
+      await CancelSession(sessionId)
+    } catch (err) {
+      setError(err.toString())
+    }
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
@@ -246,8 +256,8 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
           rows={1}
           className="flex min-h-9 max-h-36 flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <Button onClick={handleSend} disabled={!input.trim() || streaming}>
-          {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+        <Button onClick={streaming ? handleCancel : handleSend} disabled={!streaming && !input.trim()}>
+          {streaming ? <Square className="size-4" /> : <Send className="size-4" />}
         </Button>
       </div>
     </div>

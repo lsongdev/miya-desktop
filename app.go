@@ -75,6 +75,10 @@ func (a *App) CloseSession(sessionID string) error {
 	return a.manager.CloseSession(sessionID)
 }
 
+func (a *App) CancelSession(sessionID string) error {
+	return a.manager.CancelSession(sessionID)
+}
+
 func (a *App) DeleteSession(sessionID string) error {
 	return a.manager.DeleteSession(sessionID)
 }

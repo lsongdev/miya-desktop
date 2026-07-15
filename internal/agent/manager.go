@@ -235,6 +235,22 @@ func (m *Manager) ensureConnected() error {
 	return m.connectLocked(m.command)
 }
 
+func (m *Manager) clientForLongCall() (*acp.Client, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.client == nil {
+		if m.command == "" {
+			return nil, fmt.Errorf("agent: not connected")
+		}
+		log.Printf("[agent] Client nil, reconnecting before long operation...")
+		if err := m.reconnectLocked(); err != nil {
+			return nil, fmt.Errorf("agent: connect: %w", err)
+		}
+	}
+	return m.client, nil
+}
+
 func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
 		log.Printf("[agent] LoadSession: id=%q cwd=%q", sessionID, cwd)
@@ -276,28 +292,64 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 }
 
 func (m *Manager) Prompt(sessionID, message string) error {
-	return m.runWithRetry(func(client *acp.Client) error {
-		log.Printf("[agent] Prompt: session=%q message=%q", sessionID, message)
-		snapshot := m.store.AddLocalUserMessage(sessionID, message)
-		runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
-		resp, err := client.Prompt(&acp.PromptRequest{
+	log.Printf("[agent] Prompt: session=%q message=%q", sessionID, message)
+	snapshot := m.store.AddLocalUserMessage(sessionID, message)
+	runtime.EventsEmit(m.ctx, "conversation:update", snapshot)
+
+	client, err := m.clientForLongCall()
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Prompt(&acp.PromptRequest{
+		SessionID: acp.SessionID(sessionID),
+		Prompt: []acp.ContentBlock{
+			{Type: "text", Text: message},
+		},
+	})
+	if err != nil && isConnectionError(err) {
+		m.mu.Lock()
+		reconnErr := m.reconnectLocked()
+		if reconnErr == nil {
+			client = m.client
+		}
+		m.mu.Unlock()
+		if reconnErr != nil {
+			return fmt.Errorf("agent: reconnect failed: %w (original: %v)", reconnErr, err)
+		}
+		resp, err = client.Prompt(&acp.PromptRequest{
 			SessionID: acp.SessionID(sessionID),
 			Prompt: []acp.ContentBlock{
 				{Type: "text", Text: message},
 			},
 		})
-		if err != nil {
-			return fmt.Errorf("agent: prompt: %w", err)
-		}
-		if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
-			runtime.EventsEmit(m.ctx, "conversation:update", map[string]any{
-				"conversation": snapshot.Conversation,
-				"eventType":    snapshot.EventType,
-				"stopReason":   resp.StopReason,
-			})
-		}
-		return nil
-	})
+	}
+	if err != nil {
+		return fmt.Errorf("agent: prompt: %w", err)
+	}
+
+	if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
+		runtime.EventsEmit(m.ctx, "conversation:update", map[string]any{
+			"conversation": snapshot.Conversation,
+			"eventType":    snapshot.EventType,
+			"stopReason":   resp.StopReason,
+		})
+	}
+	return nil
+}
+
+func (m *Manager) CancelSession(sessionID string) error {
+	m.mu.Lock()
+	client := m.client
+	m.mu.Unlock()
+
+	if client == nil {
+		return fmt.Errorf("agent: not connected")
+	}
+	if err := client.CancelSession(acp.SessionID(sessionID)); err != nil {
+		return fmt.Errorf("agent: cancel session: %w", err)
+	}
+	return nil
 }
 
 func (m *Manager) ListSessions() ([]Session, error) {
