@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
@@ -35,7 +34,9 @@ function ToolCallDisplay({ tool }) {
       <div className="flex-1 min-w-0">
         <p className="font-medium text-foreground/80 truncate">{tool.title || tool.kind}</p>
         {tool.content?.map((c, i) => (
-          <p key={i} className="truncate">{c.type === 'text' ? c.content : `${c.type} content`}</p>
+          <p key={i} className="truncate">
+            {c.content?.text || c.content?.content || c.newText || c.path || `${c.type} content`}
+          </p>
         ))}
       </div>
       {tool.status === 'completed' && <CheckCircle2 className="size-3 shrink-0 text-green-500" />}
@@ -56,33 +57,61 @@ function ThoughtDisplay({ text }) {
   )
 }
 
-function isNewMessage(event) {
-  return event.type === 'user_message_chunk' || event.type === 'agent_message_chunk'
+function PlanDisplay({ plan }) {
+  if (!plan?.entries?.length) return null
+  return (
+    <div className="text-xs text-muted-foreground bg-muted/20 rounded-md p-2 my-1 space-y-1 max-w-full">
+      {plan.entries.map((entry, i) => (
+        <div key={i} className="flex items-start gap-2 min-w-0">
+          <span className={`size-1.5 mt-1.5 shrink-0 rounded-full ${
+            entry.status === 'completed' ? 'bg-green-500' :
+            entry.status === 'in_progress' ? 'bg-blue-500 animate-pulse' :
+            'bg-muted-foreground/30'
+          }`} />
+          <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${
+            entry.status === 'completed' ? 'line-through opacity-60' : ''
+          }`}>
+            {entry.content}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
-function appendChunk(msg, event) {
-  const content = event.content?.content || ''
-  const thought = event.content?.thought || ''
-  return {
-    ...msg,
-    text: msg.text + content + thought,
+function MessageBlock({ block, role, streaming }) {
+  if (block.type === 'thought') return <ThoughtDisplay text={block.content} />
+  if (block.type === 'tool_call') return <ToolCallDisplay tool={block.tool} />
+  if (block.type === 'plan') return <PlanDisplay plan={block.plan} />
+  if (block.type === 'image') {
+    const src = block.data ? `data:${block.mime};base64,${block.data}` : null
+    return src ? <img src={src} alt="" className="max-w-[280px] rounded-md border" /> : null
   }
-}
+  if (block.type === 'audio') {
+    const src = block.data ? `data:${block.mime};base64,${block.data}` : null
+    return src ? <audio src={src} controls className="max-w-full" /> : null
+  }
 
-function closeStreaming(msg) {
-  if (!msg.streaming) return msg
-  return { ...msg, streaming: false }
-}
-
-// Message-boundary key: prefer the server-provided messageId. If it's
-// missing (some agents omit it for streaming chunks), fall back to the
-// role — same role + streaming means "keep appending".
-function chunkKey(event) {
-  return event.content?.messageId || null
+  return (
+    <div
+      className={`rounded-lg px-3 py-2 text-sm break-words [overflow-wrap:anywhere] max-w-[85%] ${
+        role === 'user'
+          ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
+          : 'bg-muted/50'
+      }`}
+    >
+      {role === 'user' || block.type === 'text' ? (
+        block.content
+      ) : (
+        <MarkdownContent content={block.content} />
+      )}
+      {streaming && <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse align-middle" />}
+    </div>
+  )
 }
 
 function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
-  const [messages, setMessages] = useState([])
+  const [conversation, setConversation] = useState(null)
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [stopReason, setStopReason] = useState(null)
@@ -95,11 +124,8 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     if (shouldLoad && !loadedRef.current) {
       loadedRef.current = true
       setLoading(true)
-      setMessages([])
+      setConversation(null)
       LoadSession(sessionId, session.cwd || '/tmp')
-        .then(() => {
-          setMessages((prev) => prev.map(closeStreaming))
-        })
         .catch((err) => {
           setError(err.toString())
         })
@@ -116,89 +142,14 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, scrollToBottom])
+  }, [conversation?.messages, scrollToBottom])
 
   useEffect(() => {
-    const cleanup = EventsOn('session:update', (data) => {
-      const { sessionId: sid, event } = data
-      if (sid !== sessionId) return
-
-      if (event.type === 'agent_thought_chunk' || event.type === 'tool_call' || event.type === 'tool_call_update') {
-        console.log(`[session:update] ${event.type}`, JSON.stringify(event, null, 2))
-      }
-
-      setMessages((prev) => {
-        const msgs = [...prev]
-
-        if (isNewMessage(event)) {
-          const eventRole = event.type === 'user_message_chunk' ? 'user' : 'assistant'
-          const eventKey = chunkKey(event)
-          const last = msgs[msgs.length - 1]
-
-          // Only append when we can prove it's the *same* message. If the
-          // server supplies messageId, use it. Otherwise fall back to
-          // "same role + still streaming" which catches live-typing chunks
-          // but stops merging across replayed history messages that arrive
-          // as one full chunk each.
-          const sameMessage =
-            last &&
-            last.role === eventRole &&
-            (eventKey ? last.messageId === eventKey : last.streaming && !last.messageId)
-
-          if (sameMessage) {
-            msgs[msgs.length - 1] = appendChunk(last, event)
-            return msgs
-          }
-
-          if (last && last.streaming) {
-            msgs[msgs.length - 1] = closeStreaming(last)
-          }
-
-          msgs.push({
-            role: eventRole,
-            text: event.content?.content || event.content?.thought || '',
-            messageId: eventKey,
-            streaming: true,
-            tools: [],
-            thoughts: [],
-          })
-        } else if (event.type === 'agent_thought_chunk') {
-          const last = msgs[msgs.length - 1]
-          if (last && last.role === 'assistant' && last.streaming) {
-            msgs[msgs.length - 1] = {
-              ...last,
-              thoughts: [...(last.thoughts || []), event.content?.thought || ''],
-            }
-          }
-        } else if (event.type === 'tool_call') {
-          if (!event.tool) return msgs
-          const last = msgs[msgs.length - 1]
-          if (last && last.role === 'assistant') {
-            msgs[msgs.length - 1] = {
-              ...last,
-              tools: [...(last.tools || []), event.tool],
-            }
-          }
-        } else if (event.type === 'tool_call_update') {
-          if (!event.tool) return msgs
-          const last = msgs[msgs.length - 1]
-          if (last && last.tools) {
-            msgs[msgs.length - 1] = {
-              ...last,
-              tools: last.tools.map((t) =>
-                t.toolCallId === event.tool?.toolCallId ? { ...t, ...event.tool } : t
-              ),
-            }
-          }
-        } else if (event.type === 'plan') {
-          const last = msgs[msgs.length - 1]
-          if (last && last.role === 'assistant') {
-            msgs[msgs.length - 1] = { ...last, plan: event.plan }
-          }
-        }
-
-        return msgs
-      })
+    const cleanup = EventsOn('conversation:update', (snapshot) => {
+      const next = snapshot?.conversation
+      if (next?.acpSessionId !== sessionId) return
+      setConversation(next)
+      if (snapshot.stopReason) setStopReason(snapshot.stopReason)
     })
 
     return () => {
@@ -215,31 +166,23 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     setStopReason(null)
     setError(null)
 
-    // Optimistic user bubble — most ACP agents don't echo a
-    // user_message_chunk during live prompts (only during session/load
-    // replay), so we render it ourselves. Close any previously streaming
-    // bubble first so the next agent chunk starts a fresh one.
-    setMessages((prev) => [
-      ...prev.map(closeStreaming),
-      { role: 'user', text, streaming: false, tools: [], thoughts: [] },
-    ])
-
     try {
       await SendPrompt(sessionId, text)
     } catch (err) {
       setError(err.toString())
     } finally {
       setStreaming(false)
-      setMessages((prev) => prev.map(closeStreaming))
     }
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }
   }
+
+  const messages = conversation?.messages || []
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
@@ -257,8 +200,8 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex gap-3 min-w-0 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex gap-3 min-w-0 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
             <div
               className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
                 msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -268,45 +211,14 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
             </div>
 
             <div className={`flex-1 min-w-0 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              <div
-                className={`rounded-lg px-3 py-2 text-sm break-words [overflow-wrap:anywhere] max-w-[85%] ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
-                    : 'bg-muted/50'
-                }`}
-              >
-                {msg.role === 'user' ? (
-                  msg.text
-                ) : (
-                  <MarkdownContent content={msg.text} />
-                )}
-                {msg.streaming && <span className="inline-block w-1.5 h-4 bg-current ml-0.5 animate-pulse align-middle" />}
-              </div>
-
-              {msg.thoughts?.map((t, j) => (
-                <ThoughtDisplay key={j} text={t} />
+              {msg.blocks?.map((block, blockIndex) => (
+                <MessageBlock
+                  key={block.id}
+                  block={block}
+                  role={msg.role}
+                  streaming={msg.status === 'streaming' && blockIndex === msg.blocks.length - 1}
+                />
               ))}
-
-              {msg.tools?.map((t, j) => (
-                <ToolCallDisplay key={j} tool={t} />
-              ))}
-
-              {msg.plan?.entries?.length > 0 && (
-                <div className="text-xs text-muted-foreground bg-muted/20 rounded-md p-2 my-1 space-y-1 max-w-full">
-                  {msg.plan.entries.map((e, j) => (
-                    <div key={j} className="flex items-start gap-2 min-w-0">
-                      <span className={`size-1.5 mt-1.5 shrink-0 rounded-full ${
-                        e.status === 'completed' ? 'bg-green-500' :
-                        e.status === 'in_progress' ? 'bg-blue-500 animate-pulse' :
-                        'bg-muted-foreground/30'
-                      }`} />
-                      <span className={`min-w-0 break-words [overflow-wrap:anywhere] ${e.status === 'completed' ? 'line-through opacity-60' : ''}`}>
-                        {e.content}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
@@ -324,13 +236,14 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
       )}
 
       <div className="flex gap-2">
-        <Input
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           disabled={streaming}
-          className="flex-1"
+          rows={1}
+          className="flex min-h-9 max-h-36 flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <Button onClick={handleSend} disabled={!input.trim() || streaming}>
           {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}

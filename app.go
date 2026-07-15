@@ -50,6 +50,10 @@ func (a *App) SendPrompt(sessionID, message string) error {
 	return a.manager.Prompt(sessionID, message)
 }
 
+func (a *App) GetConversation(sessionID string) (*agent.Conversation, error) {
+	return a.manager.GetConversation(sessionID)
+}
+
 func (a *App) ListSessions() ([]agent.Session, error) {
 	return a.manager.ListSessions()
 }
