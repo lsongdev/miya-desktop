@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useAgent } from '../context/AgentContext'
+import { useProvider } from '../context/ProviderContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Palette, Info,
-  Loader2, Plus, Trash2, Pencil, Check, X,
+  Loader2, Plus, Trash2, Pencil, Check, X, Key,
 } from 'lucide-react'
 
 const settingsItems = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'agents', label: 'Agents', icon: Bot },
+  { id: 'providers', label: 'Providers', icon: Key },
   { id: 'mcp', label: 'MCP Servers', icon: Puzzle },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'about', label: 'About', icon: Info },
@@ -218,6 +220,159 @@ function AgentsSettings() {
   )
 }
 
+function ProvidersSettings() {
+  const { providers, addProvider, updateProvider, removeProvider } = useProvider()
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ name: '', apiKey: '', baseUrl: '' })
+
+  const startAdd = () => {
+    setAdding(true)
+    setEditing(null)
+    setForm({ name: '', apiKey: '', baseUrl: '' })
+  }
+
+  const startEdit = (provider) => {
+    setAdding(false)
+    setEditing(provider.id)
+    setForm({ name: provider.name, apiKey: provider.apiKey, baseUrl: provider.baseUrl })
+  }
+
+  const handleSave = () => {
+    if (!form.name.trim()) return
+    if (adding) {
+      const id = form.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()
+      addProvider({ id, name: form.name.trim(), apiKey: form.apiKey.trim(), baseUrl: form.baseUrl.trim() })
+    } else if (editing) {
+      updateProvider(editing, { name: form.name.trim(), apiKey: form.apiKey.trim(), baseUrl: form.baseUrl.trim() })
+    }
+    setAdding(false)
+    setEditing(null)
+    setForm({ name: '', apiKey: '', baseUrl: '' })
+  }
+
+  const handleCancel = () => {
+    setAdding(false)
+    setEditing(null)
+    setForm({ name: '', apiKey: '', baseUrl: '' })
+  }
+
+  const handleDelete = (id) => {
+    removeProvider(id)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Providers</h2>
+          <p className="text-sm text-muted-foreground">Manage API providers for LLM services.</p>
+        </div>
+        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+          <Plus className="size-3.5 mr-1" />
+          Add Provider
+        </Button>
+      </div>
+
+      <div className="rounded-lg border bg-card divide-y">
+        {providers.map((provider) => (
+          <div key={provider.id} className="px-4 py-3">
+            {editing === provider.id ? (
+              <div className="space-y-2">
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Provider name"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  value={form.apiKey}
+                  onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                  placeholder="API Key"
+                  type="password"
+                  className="h-8 font-mono text-sm"
+                />
+                <Input
+                  value={form.baseUrl}
+                  onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                  placeholder="Base URL"
+                  className="h-8 font-mono text-sm"
+                />
+                <div className="flex gap-1.5">
+                  <Button size="sm" onClick={handleSave} disabled={!form.name.trim()}>
+                    <Check className="size-3.5 mr-1" /> Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleCancel}>
+                    <X className="size-3.5 mr-1" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{provider.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">
+                    {provider.apiKey ? '••••••••' : 'No API key'} — {provider.baseUrl}
+                  </p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(provider)}>
+                    <Pencil className="size-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(provider.id)}>
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {providers.length === 0 && (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No providers configured
+          </div>
+        )}
+
+        {adding && (
+          <div className="px-4 py-3">
+            <div className="space-y-2">
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Provider name"
+                className="h-8 text-sm"
+                autoFocus
+              />
+              <Input
+                value={form.apiKey}
+                onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
+                placeholder="API Key"
+                type="password"
+                className="h-8 font-mono text-sm"
+              />
+              <Input
+                value={form.baseUrl}
+                onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))}
+                placeholder="Base URL"
+                className="h-8 font-mono text-sm"
+              />
+              <div className="flex gap-1.5">
+                <Button size="sm" onClick={handleSave} disabled={!form.name.trim()}>
+                  <Check className="size-3.5 mr-1" /> Save
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleCancel}>
+                  <X className="size-3.5 mr-1" /> Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function McpSettings() {
   return (
     <div className="space-y-4">
@@ -274,6 +429,7 @@ function AboutSettings() {
 const settingsContent = {
   general: GeneralSettings,
   agents: AgentsSettings,
+  providers: ProvidersSettings,
   mcp: McpSettings,
   appearance: AppearanceSettings,
   about: AboutSettings,
