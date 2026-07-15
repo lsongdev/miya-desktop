@@ -36,7 +36,7 @@ function AppSidebar({ activePage, onNavigate }) {
               <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                 <img src={miyaIcon} alt="" className="size-full object-cover" />
               </div>
-              <span className="font-semibold">Miya</span>
+              <span className="font-semibold">Miya Desktop</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

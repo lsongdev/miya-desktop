@@ -713,25 +713,18 @@ function AboutSettings() {
           Miya Desktop is an ACP-native client for managing agent conversations, local agent runtime profiles,
           MCP tools, and remote-control channels from a single desktop workspace.
         </p>
-        <div className="grid gap-2 text-sm md:grid-cols-2">
-          <div className="rounded-md border bg-background px-3 py-2">
-            <p className="font-medium">Runtime</p>
-            <p className="text-muted-foreground">Embedded miya-agents and miya-channels</p>
-          </div>
-          <div className="rounded-md border bg-background px-3 py-2">
-            <p className="font-medium">Interface</p>
-            <p className="text-muted-foreground">Wails, React, and ACP</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 text-sm">
-          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-desktop" target="_blank" rel="noreferrer">
-            Desktop <ExternalLink className="size-3.5" />
+        <div className="space-y-2 text-sm">
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-desktop" target="_blank" rel="noreferrer">
+            <span>miya-desktop</span>
+            <ExternalLink className="size-3.5" />
           </a>
-          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-agents" target="_blank" rel="noreferrer">
-            Agents <ExternalLink className="size-3.5" />
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-agents" target="_blank" rel="noreferrer">
+            <span>miya-agents</span>
+            <ExternalLink className="size-3.5" />
           </a>
-          <a className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 hover:bg-muted" href="https://github.com/lsongdev/miya-channels" target="_blank" rel="noreferrer">
-            Channels <ExternalLink className="size-3.5" />
+          <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-channels" target="_blank" rel="noreferrer">
+            <span>miya-channels</span>
+            <ExternalLink className="size-3.5" />
           </a>
         </div>
         <p className="text-xs text-muted-foreground">
