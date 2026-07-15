@@ -3,6 +3,8 @@
 import {agent} from '../models';
 import {conversation} from '../models';
 
+export function CancelSession(arg1:string):Promise<void>;
+
 export function CloseSession(arg1:string):Promise<void>;
 
 export function ConnectAgent(arg1:string):Promise<void>;
