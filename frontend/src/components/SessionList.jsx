@@ -147,7 +147,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       <div className="shrink-0 p-3 border-b">
         <div className="relative flex">
           <Button
-            className="flex-1 rounded-r-none"
+            className="flex-1 rounded-r-none border-r border-primary-foreground/20"
             size="sm"
             onClick={() => handleNewSession(agents.find((agent) => agent.id === currentAgentId) || agents[0])}
             disabled={creating || agents.length === 0}
@@ -157,8 +157,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
           </Button>
           <Button
             size="icon-sm"
-            variant="outline"
-            className="rounded-l-none border-l-0"
+            className="rounded-l-none border-l-0 px-2"
             onClick={() => setMenuOpen((open) => !open)}
             disabled={creating || agents.length <= 1}
             title="Choose agent"

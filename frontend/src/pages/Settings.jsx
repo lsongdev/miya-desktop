@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { ChannelsServiceStatus, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
 import {
-  MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Palette, Info,
+  MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2,
 } from 'lucide-react'
 
@@ -16,7 +16,6 @@ const settingsItems = [
   { id: 'providers', label: 'Providers', icon: Key },
   { id: 'mcp', label: 'MCP Servers', icon: Puzzle },
   { id: 'channels', label: 'Channels', icon: Radio },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'about', label: 'About', icon: Info },
 ]
 
@@ -64,6 +63,18 @@ function ConfigError({ error }) {
   return <p className="text-xs text-destructive">{error}</p>
 }
 
+function SectionHeader({ title, description, action }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  )
+}
+
 function Switch({ checked, onChange, disabled, label }) {
   return (
     <button
@@ -87,16 +98,28 @@ function Switch({ checked, onChange, disabled, label }) {
 }
 
 function GeneralSettings() {
+  const { theme, toggleTheme } = useTheme()
+
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">General</h2>
-      <p className="text-sm text-muted-foreground">Application preferences.</p>
+      <SectionHeader title="General" description="Application preferences and appearance." />
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Theme</p>
+            <p className="text-sm text-muted-foreground">Switch between light and dark mode.</p>
+          </div>
+          <Button variant="outline" size="icon" onClick={toggleTheme}>
+            {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
 
 function AgentsSettings() {
-  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const agents = Array.isArray(config.agents) ? config.agents : []
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -173,15 +196,15 @@ function AgentsSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Agents</h2>
-          <p className="text-sm text-muted-foreground">Manage ACP agent endpoints in {path || '~/.miya/config.json'}.</p>
-        </div>
-        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Agent
-        </Button>
-      </div>
+      <SectionHeader
+        title="Agents"
+        description="Manage ACP agent endpoints."
+        action={(
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+            <Plus className="size-3.5 mr-1" /> Add Agent
+          </Button>
+        )}
+      />
       <div className="rounded-lg border bg-card divide-y">
         {agents.map((agent) => (
           <div key={agent.id} className="px-4 py-3">
@@ -216,7 +239,7 @@ function AgentsSettings() {
 }
 
 function ProfilesSettings() {
-  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const profiles = entriesOf(config.profiles)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -294,15 +317,15 @@ function ProfilesSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Profiles</h2>
-          <p className="text-sm text-muted-foreground">Manage miya-agents runtime profiles in {path || '~/.miya/config.json'}.</p>
-        </div>
-        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Profile
-        </Button>
-      </div>
+      <SectionHeader
+        title="Profiles"
+        description="Manage miya-agents runtime profiles."
+        action={(
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+            <Plus className="size-3.5 mr-1" /> Add Profile
+          </Button>
+        )}
+      />
       <div className="rounded-lg border bg-card divide-y">
         {profiles.map((profile) => (
           <div key={profile.id} className="px-4 py-3">
@@ -329,7 +352,7 @@ function ProfilesSettings() {
 }
 
 function ProvidersSettings() {
-  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const providers = entriesOf(config.providers)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -377,15 +400,15 @@ function ProvidersSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Providers</h2>
-          <p className="text-sm text-muted-foreground">Manage providers in {path || '~/.miya/config.json'}.</p>
-        </div>
-        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Provider
-        </Button>
-      </div>
+      <SectionHeader
+        title="Providers"
+        description="Manage model provider credentials and endpoints."
+        action={(
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+            <Plus className="size-3.5 mr-1" /> Add Provider
+          </Button>
+        )}
+      />
       <div className="rounded-lg border bg-card divide-y">
         {providers.map((provider) => (
           <div key={provider.id} className="px-4 py-3">
@@ -412,7 +435,7 @@ function ProvidersSettings() {
 }
 
 function McpSettings() {
-  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const servers = entriesOf(config.mcpServers)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -484,15 +507,15 @@ function McpSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">MCP Servers</h2>
-          <p className="text-sm text-muted-foreground">Manage MCP servers in {path || '~/.miya/config.json'}.</p>
-        </div>
-        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Server
-        </Button>
-      </div>
+      <SectionHeader
+        title="MCP Servers"
+        description="Manage tool server connections."
+        action={(
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+            <Plus className="size-3.5 mr-1" /> Add Server
+          </Button>
+        )}
+      />
       <div className="rounded-lg border bg-card divide-y">
         {servers.map((server) => (
           <div key={server.id} className="px-4 py-3">
@@ -519,7 +542,7 @@ function McpSettings() {
 }
 
 function ChannelsSettings() {
-  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error } = useMiyaConfig()
   const channels = entriesOf(config.channels)
   // TODO: Move this desktop-local preference out of shared ~/.miya/config.json.
   const channelsEnabled = config.channelsEnabled !== false
@@ -614,25 +637,23 @@ function ChannelsSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <div className="flex items-center justify-between gap-3">
+      <SectionHeader
+        title="Channels"
+        description="Manage remote-control channel config."
+        action={(
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Channels</h2>
             <Switch
               checked={channelsEnabled}
               onChange={toggleChannelsEnabled}
               disabled={saving}
               label="Enable channels"
             />
-          </div>
-          <div className="flex items-center gap-2">
             <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
               <Plus className="size-3.5 mr-1" /> Add Channel
             </Button>
           </div>
-        </div>
-        <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
-      </div>
+        )}
+      />
       <div className="rounded-lg border bg-card px-4 py-3 text-xs">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -675,40 +696,29 @@ function ChannelsSettings() {
   )
 }
 
-function AppearanceSettings() {
-  const { theme, toggleTheme } = useTheme()
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Appearance</h2>
-      <p className="text-sm text-muted-foreground">
-        Customize the look and feel of the application.
-      </p>
-      <div className="rounded-lg border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium">Dark Mode</p>
-            <p className="text-sm text-muted-foreground">Toggle between light and dark theme</p>
-          </div>
-          <Button variant="outline" size="icon" onClick={toggleTheme}>
-            {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function AboutSettings() {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">About</h2>
-      <div className="rounded-lg border bg-card p-6 space-y-2">
-        <p className="font-medium">Miya Desktop</p>
-        <p className="text-sm text-muted-foreground">Version 0.1.0</p>
-        <p className="text-sm text-muted-foreground">
-          An AI Agent chat application built with Wails, React, and shadcn/ui.
+      <SectionHeader title="About" description="Product information and runtime scope." />
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <div>
+          <p className="text-base font-semibold">Miya Desktop</p>
+          <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+        </div>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+          Miya Desktop is an ACP-native client for managing agent conversations, local agent runtime profiles,
+          MCP tools, and remote-control channels from a single desktop workspace.
         </p>
+        <div className="grid gap-2 text-sm md:grid-cols-2">
+          <div className="rounded-md border bg-background px-3 py-2">
+            <p className="font-medium">Runtime</p>
+            <p className="text-muted-foreground">Embedded miya-agents and miya-channels</p>
+          </div>
+          <div className="rounded-md border bg-background px-3 py-2">
+            <p className="font-medium">Interface</p>
+            <p className="text-muted-foreground">Wails, React, and ACP</p>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -721,7 +731,6 @@ const settingsContent = {
   providers: ProvidersSettings,
   mcp: McpSettings,
   channels: ChannelsSettings,
-  appearance: AppearanceSettings,
   about: AboutSettings,
 }
 

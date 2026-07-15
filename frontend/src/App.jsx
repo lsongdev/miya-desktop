@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarInset,
 } from './components/ui/sidebar';
-import { MessageSquare, Settings as SettingsIcon } from 'lucide-react'
+import { Bot, MessagesSquare, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
@@ -28,12 +28,12 @@ const pageComponents = {
 function AppSidebar({ activePage, onNavigate }) {
   return (
     <Sidebar collapsible="icon" className="pt-0">
-      <SidebarHeader>
+      <SidebarHeader className="p-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <MessageSquare className="size-4" />
+            <SidebarMenuButton size="default" className="h-9">
+              <div className="flex aspect-square size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <Sparkles className="size-3.5" />
               </div>
               <span className="font-semibold">Miya</span>
             </SidebarMenuButton>
@@ -42,7 +42,7 @@ function AppSidebar({ activePage, onNavigate }) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
+        <SidebarGroup className="p-1.5">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -51,7 +51,7 @@ function AppSidebar({ activePage, onNavigate }) {
                   onClick={() => onNavigate('chat')}
                   tooltip="Chat"
                 >
-                  <MessageSquare />
+                  <MessagesSquare />
                   <span>Chat</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -60,7 +60,7 @@ function AppSidebar({ activePage, onNavigate }) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -68,7 +68,7 @@ function AppSidebar({ activePage, onNavigate }) {
               onClick={() => onNavigate('settings')}
               tooltip="Settings"
             >
-              <SettingsIcon />
+              <SlidersHorizontal />
               <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
