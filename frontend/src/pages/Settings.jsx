@@ -98,6 +98,14 @@ function Switch({ checked, onChange, disabled, label }) {
   )
 }
 
+function GitHubMark({ className = 'size-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+      <path d="M12 .5A12 12 0 0 0 8.2 23.9c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.4-4-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1.1 1.8 2.9 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.4-1.3-5.4-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.4 5.9.4.4.8 1.1.8 2.2v3.1c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z" />
+    </svg>
+  )
+}
+
 function GeneralSettings() {
   const { theme, toggleTheme } = useTheme()
 
@@ -715,15 +723,15 @@ function AboutSettings() {
         </p>
         <div className="space-y-2 text-sm">
           <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-desktop" target="_blank" rel="noreferrer">
-            <span>miya-desktop</span>
+            <span className="flex items-center gap-2"><GitHubMark /> miya-desktop</span>
             <ExternalLink className="size-3.5" />
           </a>
           <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-agents" target="_blank" rel="noreferrer">
-            <span>miya-agents</span>
+            <span className="flex items-center gap-2"><GitHubMark /> miya-agents</span>
             <ExternalLink className="size-3.5" />
           </a>
           <a className="flex w-full items-center justify-between rounded-md border px-3 py-2 hover:bg-muted" href="https://github.com/lsongdev/miya-channels" target="_blank" rel="noreferrer">
-            <span>miya-channels</span>
+            <span className="flex items-center gap-2"><GitHubMark /> miya-channels</span>
             <ExternalLink className="size-3.5" />
           </a>
         </div>
