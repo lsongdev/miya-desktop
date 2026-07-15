@@ -111,6 +111,12 @@ function MessageBlock({ block, role, streaming }) {
   )
 }
 
+function usageLabel(usage) {
+  if (!usage?.size) return null
+  const percent = Math.round((Number(usage.used || 0) / Number(usage.size)) * 100)
+  return `${usage.used || 0}/${usage.size} (${percent}%)`
+}
+
 function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [conversation, setConversation] = useState(null)
   const [input, setInput] = useState('')
@@ -120,6 +126,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [error, setError] = useState(null)
   const messagesEndRef = useRef(null)
   const loadedRef = useRef(false)
+  const inputRef = useRef(null)
 
   useEffect(() => {
     if (shouldLoad && !loadedRef.current) {
@@ -164,6 +171,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     if (!text || streaming) return
 
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setStreaming(true)
     setStopReason(null)
     setError(null)
@@ -186,6 +194,12 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     }
   }
 
+  const handleInputChange = (e) => {
+    setInput(e.target.value)
+    e.target.style.height = 'auto'
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 144)}px`
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
@@ -194,6 +208,9 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   }
 
   const messages = conversation?.messages || []
+  const usage = usageLabel(conversation?.usage)
+  const mode = conversation?.mode?.currentModeId
+  const cwd = conversation?.cwd || session?.cwd
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
@@ -246,10 +263,19 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
         <p className="text-xs text-destructive text-center mb-2">{error}</p>
       )}
 
+      {(cwd || usage || mode) && (
+        <div className="mb-2 flex min-w-0 items-center gap-3 text-[11px] text-muted-foreground">
+          {cwd && <span className="min-w-0 flex-1 truncate font-mono">{cwd}</span>}
+          {mode && <span className="shrink-0">Mode: {mode}</span>}
+          {usage && <span className="shrink-0">Context: {usage}</span>}
+        </div>
+      )}
+
       <div className="flex gap-2">
         <textarea
+          ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           disabled={streaming}
