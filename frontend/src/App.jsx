@@ -17,6 +17,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
 import { MiyaConfigProvider } from './context/MiyaConfigContext';
+import { NavigationContext } from './hooks/useNavigate';
 import miyaIcon from './assets/images/miya-icon.png'
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
@@ -81,21 +82,28 @@ function AppSidebar({ activePage, onNavigate }) {
 
 export default function App() {
   const [activePage, setActivePage] = useState('chat');
+  const [navParams, setNavParams] = useState({});
   const ActivePage = pageComponents[activePage];
+  const navigate = (page, params = {}) => {
+    setActivePage(page)
+    setNavParams(params)
+  }
 
   return (
     <ThemeProvider>
       <ProviderProvider>
         <MiyaConfigProvider>
           <AgentProvider>
-            <SidebarProvider defaultOpen={false}>
-              <AppSidebar activePage={activePage} onNavigate={setActivePage} />
-              <SidebarInset className="min-w-0 overflow-hidden">
-                <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
-                  {ActivePage && <ActivePage />}
-                </main>
-              </SidebarInset>
-            </SidebarProvider>
+            <NavigationContext.Provider value={{ page: activePage, params: navParams, navigate }}>
+              <SidebarProvider defaultOpen={false}>
+                <AppSidebar activePage={activePage} onNavigate={(page) => navigate(page)} />
+                <SidebarInset className="min-w-0 overflow-hidden">
+                  <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
+                    {ActivePage && <ActivePage />}
+                  </main>
+                </SidebarInset>
+              </SidebarProvider>
+            </NavigationContext.Provider>
           </AgentProvider>
         </MiyaConfigProvider>
       </ProviderProvider>

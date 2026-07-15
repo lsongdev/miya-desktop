@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 
 export const NavigationContext = createContext({
-  page: 'agents',
+  page: 'chat',
   params: {},
   navigate: () => {},
 })

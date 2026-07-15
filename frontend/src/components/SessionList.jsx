@@ -15,6 +15,7 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react'
+import { useNavigate } from '../hooks/useNavigate'
 
 function sessionKey(session) {
   return session?.key || session?.id || ''
@@ -46,6 +47,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const [creating, setCreating] = useState(false)
   const [actionError, setActionError] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const navigate = useNavigate()
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -143,6 +145,10 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
 
   const groups = groupSessions(sessions, agents)
   const showAgentMenu = agents.length > 1
+  const missingProfiles = actionError?.includes('no profiles configured')
+  const actionErrorMessage = missingProfiles
+    ? 'No agent profiles configured.'
+    : actionError
 
   return (
     <div className="flex flex-col h-full border-r bg-card">
@@ -188,8 +194,18 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       </div>
 
       {actionError && (
-        <div className="shrink-0 px-3 py-2 text-[10px] text-destructive bg-destructive/10 border-b flex items-start gap-1">
-          <span className="flex-1 break-words">{actionError}</span>
+        <div className="shrink-0 px-3 py-2 text-[10px] text-destructive bg-destructive/10 border-b flex items-start gap-1.5">
+          <div className="flex-1 min-w-0">
+            <span className="break-words">{actionErrorMessage}</span>
+            {missingProfiles && (
+              <button
+                className="ml-1 font-medium underline underline-offset-2 hover:text-destructive/80"
+                onClick={() => navigate('settings', { settingsTab: 'profiles' })}
+              >
+                Go profiles settings →
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setActionError(null)}
             className="shrink-0 opacity-70 hover:opacity-100"
