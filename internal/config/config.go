@@ -6,47 +6,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	agentsconfig "github.com/lsongdev/miya-agents/config"
 )
 
-type Config struct {
-	Agents     map[string]AgentConfig     `json:"agents,omitempty"`
-	Providers  map[string]ProviderConfig  `json:"providers,omitempty"`
-	McpServers map[string]McpServerConfig `json:"mcpServers,omitempty"`
-	ACP        *ACPConfig                 `json:"acp,omitempty"`
-	Channels   map[string]any             `json:"channels,omitempty"`
-	Tools      map[string]any             `json:"tools,omitempty"`
-	Logging    map[string]any             `json:"logging,omitempty"`
-}
-
-type ProviderConfig struct {
-	APIKey  string `json:"apiKey"`
-	APIBase string `json:"apiBase,omitempty"`
-	Type    string `json:"type,omitempty"`
-}
-
-type AgentConfig struct {
-	Provider            string  `json:"provider"`
-	Model               string  `json:"model,omitempty"`
-	Workspace           string  `json:"workspace,omitempty"`
-	MaxTokens           int     `json:"maxTokens,omitempty"`
-	Temperature         float64 `json:"temperature,omitempty"`
-	ContextWindowTokens int     `json:"contextWindowTokens,omitempty"`
-	ContextWarnRatio    float64 `json:"contextWarnRatio,omitempty"`
-}
-
-type McpServerConfig struct {
-	Type    string            `json:"type,omitempty"`
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-	URL     string            `json:"url,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-}
-
-type ACPConfig struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args,omitempty"`
-}
+type Config = agentsconfig.Config
+type ACPAgentConfig = agentsconfig.ACPAgentConfig
+type ProfileConfig = agentsconfig.ProfileConfig
+type ProviderConfig = agentsconfig.ProviderConfig
 
 type Service struct {
 	path string
@@ -110,9 +77,12 @@ func (s *Service) Save(cfg *Config) error {
 
 func defaultConfig() *Config {
 	cfg := &Config{
-		Agents:     map[string]AgentConfig{},
-		Providers:  map[string]ProviderConfig{},
-		McpServers: map[string]McpServerConfig{},
+		Agents: []ACPAgentConfig{
+			{ID: "miya", Name: "Miya Agents", Type: "stdio", Command: "miya", Args: []string{"acp"}},
+		},
+		Profiles:   map[string]*ProfileConfig{},
+		Providers:  map[string]*ProviderConfig{},
+		McpServers: map[string]*agentsconfig.McpServerConfig{},
 		Channels:   map[string]any{},
 	}
 	normalize(cfg)
@@ -121,13 +91,21 @@ func defaultConfig() *Config {
 
 func normalize(cfg *Config) {
 	if cfg.Agents == nil {
-		cfg.Agents = map[string]AgentConfig{}
+		cfg.Agents = []ACPAgentConfig{}
+	}
+	for i := range cfg.Agents {
+		if cfg.Agents[i].Type == "" {
+			cfg.Agents[i].Type = "stdio"
+		}
+	}
+	if cfg.Profiles == nil {
+		cfg.Profiles = map[string]*ProfileConfig{}
 	}
 	if cfg.Providers == nil {
-		cfg.Providers = map[string]ProviderConfig{}
+		cfg.Providers = map[string]*ProviderConfig{}
 	}
 	if cfg.McpServers == nil {
-		cfg.McpServers = map[string]McpServerConfig{}
+		cfg.McpServers = map[string]*agentsconfig.McpServerConfig{}
 	}
 	if cfg.Channels == nil {
 		cfg.Channels = map[string]any{}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useAgent } from '../context/AgentContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
@@ -12,6 +12,7 @@ import {
 const settingsItems = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'agents', label: 'Agents', icon: Bot },
+  { id: 'profiles', label: 'Profiles', icon: Bot },
   { id: 'providers', label: 'Providers', icon: Key },
   { id: 'mcp', label: 'MCP Servers', icon: Puzzle },
   { id: 'channels', label: 'Channels', icon: Radio },
@@ -25,6 +26,11 @@ const textAreaClass = 'min-h-24 w-full rounded-md border bg-transparent px-3 py-
 
 function entriesOf(obj) {
   return Object.entries(obj || {}).map(([id, value]) => ({ id, ...(value || {}) }))
+}
+
+function commandFromAgent(agent) {
+  if (!agent?.command) return agent?.url || 'not configured'
+  return [agent.command, ...(agent.args || [])].join(' ')
 }
 
 function parseList(value) {
@@ -60,27 +66,6 @@ function ConfigError({ error }) {
 
 function GeneralSettings() {
   const { agents, selectedAgent, selectedAgentId, setSelectedAgentId, connected, connecting, agentInfo, error, connect, disconnect } = useAgent()
-  const { config, path, saveConfig, saving, error: configError } = useMiyaConfig()
-  const [acpForm, setAcpForm] = useState({
-    command: config.acp?.command || 'miya',
-    args: (config.acp?.args || ['acp']).join(' '),
-  })
-
-  useEffect(() => {
-    setAcpForm({
-      command: config.acp?.command || 'miya',
-      args: (config.acp?.args || ['acp']).join(' '),
-    })
-  }, [config.acp])
-
-  const saveACP = async () => {
-    const command = acpForm.command.trim()
-    if (!command) return
-    await saveConfig((prev) => ({
-      ...prev,
-      acp: { command, args: parseList(acpForm.args) },
-    }))
-  }
 
   return (
     <div className="space-y-4">
@@ -141,27 +126,116 @@ function GeneralSettings() {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-6 space-y-3">
-        <div>
-          <p className="font-medium text-sm">Miya Agents ACP Command</p>
-          <p className="text-xs text-muted-foreground">Saved in {path || '~/.miya/config.json'} and exposed as the Miya Agents connection.</p>
-        </div>
-        <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto]">
-          <Input value={acpForm.command} onChange={(e) => setAcpForm((f) => ({ ...f, command: e.target.value }))} placeholder="miya" className={monoInputClass} />
-          <Input value={acpForm.args} onChange={(e) => setAcpForm((f) => ({ ...f, args: e.target.value }))} placeholder="acp" className={monoInputClass} />
-          <Button size="sm" onClick={saveACP} disabled={!acpForm.command.trim() || saving}>
-            <Check className="size-3.5 mr-1" /> Save
-          </Button>
-        </div>
-        <ConfigError error={configError} />
-      </div>
     </div>
   )
 }
 
 function AgentsSettings() {
   const { config, path, saveConfig, saving, error } = useMiyaConfig()
-  const agents = entriesOf(config.agents)
+  const agents = Array.isArray(config.agents) ? config.agents : []
+  const [editing, setEditing] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState({ id: '', name: '', type: 'stdio', command: '', args: '', url: '', headers: '' })
+
+  const reset = () => setForm({ id: '', name: '', type: 'stdio', command: '', args: '', url: '', headers: '' })
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
+  const startEdit = (agent) => {
+    setAdding(false)
+    setEditing(agent.id)
+    setForm({
+      id: agent.id || '',
+      name: agent.name || '',
+      type: agent.type || 'stdio',
+      command: agent.command || '',
+      args: (agent.args || []).join(' '),
+      url: agent.url || '',
+      headers: keyValuesToText(agent.headers),
+    })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    const id = form.id.trim()
+    if (!id) return
+    await saveConfig((prev) => {
+      const agents = (prev.agents || []).filter((agent) => agent.id !== (editing || id))
+      agents.push({
+        id,
+        name: form.name.trim(),
+        type: form.type.trim() || 'stdio',
+        command: form.command.trim(),
+        args: parseList(form.args),
+        url: form.url.trim(),
+        headers: parseKeyValues(form.headers),
+      })
+      return { ...prev, agents }
+    })
+    handleCancel()
+  }
+  const handleDelete = async (id) => {
+    await saveConfig((prev) => ({ ...prev, agents: (prev.agents || []).filter((agent) => agent.id !== id) }))
+  }
+
+  const editor = (
+    <div className="space-y-2">
+      <div className="grid gap-2 md:grid-cols-2">
+        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
+        <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} />
+        <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className="h-8 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
+          <option value="stdio">stdio</option>
+          <option value="http">http</option>
+          <option value="sse">sse</option>
+        </select>
+        <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
+        <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+        <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
+      </div>
+      <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Agents</h2>
+          <p className="text-sm text-muted-foreground">Manage ACP agent endpoints in {path || '~/.miya/config.json'}.</p>
+        </div>
+        <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+          <Plus className="size-3.5 mr-1" /> Add Agent
+        </Button>
+      </div>
+      <div className="rounded-lg border bg-card divide-y">
+        {agents.map((agent) => (
+          <div key={agent.id} className="px-4 py-3">
+            {editing === agent.id ? editor : (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{agent.name || agent.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{agent.type || 'stdio'} / {commandFromAgent(agent)}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {agents.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No agents configured</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
+      </div>
+      <ConfigError error={error} />
+    </div>
+  )
+}
+
+function ProfilesSettings() {
+  const { config, path, saveConfig, saving, error } = useMiyaConfig()
+  const profiles = entriesOf(config.profiles)
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({
@@ -171,18 +245,18 @@ function AgentsSettings() {
 
   const reset = () => setForm({ id: '', provider: '', model: '', workspace: '', maxTokens: '', temperature: '', contextWindowTokens: '', contextWarnRatio: '' })
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
-  const startEdit = (agent) => {
+  const startEdit = (profile) => {
     setAdding(false)
-    setEditing(agent.id)
+    setEditing(profile.id)
     setForm({
-      id: agent.id,
-      provider: agent.provider || '',
-      model: agent.model || '',
-      workspace: agent.workspace || '',
-      maxTokens: agent.maxTokens ? String(agent.maxTokens) : '',
-      temperature: agent.temperature ? String(agent.temperature) : '',
-      contextWindowTokens: agent.contextWindowTokens ? String(agent.contextWindowTokens) : '',
-      contextWarnRatio: agent.contextWarnRatio ? String(agent.contextWarnRatio) : '',
+      id: profile.id,
+      provider: profile.provider || '',
+      model: profile.model || '',
+      workspace: profile.workspace || '',
+      maxTokens: profile.maxTokens ? String(profile.maxTokens) : '',
+      temperature: profile.temperature ? String(profile.temperature) : '',
+      contextWindowTokens: profile.contextWindowTokens ? String(profile.contextWindowTokens) : '',
+      contextWarnRatio: profile.contextWarnRatio ? String(profile.contextWarnRatio) : '',
     })
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
@@ -190,9 +264,9 @@ function AgentsSettings() {
     const id = form.id.trim()
     if (!id || !form.provider.trim()) return
     await saveConfig((prev) => {
-      const agents = { ...(prev.agents || {}) }
-      if (editing && editing !== id) delete agents[editing]
-      agents[id] = {
+      const profiles = { ...(prev.profiles || {}) }
+      if (editing && editing !== id) delete profiles[editing]
+      profiles[id] = {
         provider: form.provider.trim(),
         model: form.model.trim(),
         workspace: form.workspace.trim(),
@@ -201,22 +275,22 @@ function AgentsSettings() {
         contextWindowTokens: Number(form.contextWindowTokens) || 0,
         contextWarnRatio: Number(form.contextWarnRatio) || 0,
       }
-      return { ...prev, agents }
+      return { ...prev, profiles }
     })
     handleCancel()
   }
   const handleDelete = async (id) => {
     await saveConfig((prev) => {
-      const agents = { ...(prev.agents || {}) }
-      delete agents[id]
-      return { ...prev, agents }
+      const profiles = { ...(prev.profiles || {}) }
+      delete profiles[id]
+      return { ...prev, profiles }
     })
   }
 
   const editor = (
     <div className="space-y-2">
       <div className="grid gap-2 md:grid-cols-2">
-        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Agent ID" className={inputClass} autoFocus />
+        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile ID" className={inputClass} autoFocus />
         <Input value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Provider ID" className={inputClass} />
         <Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="Model" className={monoInputClass} />
         <Input value={form.workspace} onChange={(e) => setForm((f) => ({ ...f, workspace: e.target.value }))} placeholder="Workspace" className={monoInputClass} />
@@ -240,31 +314,31 @@ function AgentsSettings() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Agents</h2>
-          <p className="text-sm text-muted-foreground">Manage miya-agents entries in {path || '~/.miya/config.json'}.</p>
+          <h2 className="text-lg font-semibold">Profiles</h2>
+          <p className="text-sm text-muted-foreground">Manage miya-agents runtime profiles in {path || '~/.miya/config.json'}.</p>
         </div>
         <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-          <Plus className="size-3.5 mr-1" /> Add Agent
+          <Plus className="size-3.5 mr-1" /> Add Profile
         </Button>
       </div>
       <div className="rounded-lg border bg-card divide-y">
-        {agents.map((agent) => (
-          <div key={agent.id} className="px-4 py-3">
-            {editing === agent.id ? editor : (
+        {profiles.map((profile) => (
+          <div key={profile.id} className="px-4 py-3">
+            {editing === profile.id ? editor : (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm">{agent.id}</p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">{agent.provider || 'no provider'} / {agent.model || 'no model'}</p>
+                  <p className="font-medium text-sm">{profile.id}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{profile.provider || 'no provider'} / {profile.model || 'no model'}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
-                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(profile)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(profile.id)}><Trash2 className="size-3" /></Button>
                 </div>
               </div>
             )}
           </div>
         ))}
-        {agents.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No agents configured</div>}
+        {profiles.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No profiles configured</div>}
         {adding && <div className="px-4 py-3">{editor}</div>}
       </div>
       <ConfigError error={error} />
@@ -596,6 +670,7 @@ function AboutSettings() {
 const settingsContent = {
   general: GeneralSettings,
   agents: AgentsSettings,
+  profiles: ProfilesSettings,
   providers: ProvidersSettings,
   mcp: McpSettings,
   channels: ChannelsSettings,

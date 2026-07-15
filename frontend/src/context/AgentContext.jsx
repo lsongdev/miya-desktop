@@ -4,29 +4,25 @@ import { useMiyaConfig } from './MiyaConfigContext'
 
 const AgentContext = createContext(null)
 
-const AGENTS_KEY = 'miya-agents'
 const SELECTED_KEY = 'miya-selected-agent'
 
 const DEFAULT_AGENTS = [
-  { id: 'opencode', name: 'OpenCode', command: 'opencode acp' },
+  { id: 'miya', name: 'Miya Agents', type: 'stdio', command: 'miya', args: ['acp'] },
 ]
 
-function commandFromACP(acp) {
-  const command = acp?.command?.trim()
-  if (!command) return 'miya acp'
-  return [command, ...(acp.args || [])].join(' ')
+function commandFromAgent(agent) {
+  if (!agent?.command?.trim()) return ''
+  return [agent.command.trim(), ...(agent.args || [])].join(' ')
 }
 
-function loadAgents() {
-  try {
-    const raw = localStorage.getItem(AGENTS_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return DEFAULT_AGENTS
-}
-
-function saveAgents(agents) {
-  try { localStorage.setItem(AGENTS_KEY, JSON.stringify(agents)) } catch {}
+function normalizeAgent(agent) {
+  const id = agent.id || agent.name || agent.command
+  return {
+    ...agent,
+    id,
+    name: agent.name || id,
+    command: commandFromAgent(agent),
+  }
 }
 
 function loadSelectedId() {
@@ -39,7 +35,6 @@ function saveSelectedId(id) {
 
 export function AgentProvider({ children }) {
   const { config } = useMiyaConfig()
-  const [localAgents, setLocalAgents] = useState(loadAgents)
   const [selectedAgentId, setSelectedAgentIdState] = useState(loadSelectedId)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -47,39 +42,16 @@ export function AgentProvider({ children }) {
   const [error, setError] = useState(null)
 
   const agents = useMemo(() => {
-    const miyaAgent = { id: 'miya-agents', name: 'Miya Agents', command: commandFromACP(config.acp) }
-    return [miyaAgent, ...localAgents.filter((agent) => agent.id !== miyaAgent.id)]
-  }, [config.acp, localAgents])
+    const configured = Array.isArray(config.agents) ? config.agents : []
+    const source = configured.length > 0 ? configured : DEFAULT_AGENTS
+    return source.map(normalizeAgent).filter((agent) => agent.id && agent.command)
+  }, [config.agents])
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null
 
   const setSelectedAgentId = useCallback((id) => {
     setSelectedAgentIdState(id)
     saveSelectedId(id)
-  }, [])
-
-  const addAgent = useCallback((agent) => {
-    setLocalAgents((prev) => {
-      const next = [...prev, agent]
-      saveAgents(next)
-      return next
-    })
-  }, [])
-
-  const updateAgent = useCallback((id, updates) => {
-    setLocalAgents((prev) => {
-      const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
-      saveAgents(next)
-      return next
-    })
-  }, [])
-
-  const removeAgent = useCallback((id) => {
-    setLocalAgents((prev) => {
-      const next = prev.filter((a) => a.id !== id)
-      saveAgents(next)
-      return next
-    })
   }, [])
 
   const connect = useCallback(async (agent) => {
@@ -123,7 +95,6 @@ export function AgentProvider({ children }) {
   return (
     <AgentContext.Provider value={{
       agents, selectedAgent, selectedAgentId, setSelectedAgentId,
-      addAgent, updateAgent, removeAgent,
       connected, connecting, agentInfo, error,
       connect, disconnect, reconnect,
     }}>
