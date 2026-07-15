@@ -294,7 +294,7 @@ export default function Chat() {
   const [activeSession, setActiveSession] = useState(null)
   const [shouldLoad, setShouldLoad] = useState(false)
   const refreshRef = useRef(null)
-  const { connected } = useAgent()
+  const { agents, selectedAgentId, connected, reconnect } = useAgent()
 
   const handleSelectSession = (session) => {
     if (activeSession?.id === session.id) return
@@ -323,6 +323,11 @@ export default function Chat() {
     }
   }, [activeSession])
 
+  const handleBeforeCreateSession = useCallback(async (agent) => {
+    if (!agent) throw new Error('No enabled agent configured')
+    await reconnect(agent)
+  }, [reconnect])
+
   return (
     <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
       <div className="w-64 shrink-0 border-r">
@@ -332,6 +337,9 @@ export default function Chat() {
           onNewSession={handleNewSession}
           onRefresh={refreshRef}
           connected={connected}
+          agents={agents}
+          currentAgentId={selectedAgentId}
+          onBeforeCreateSession={handleBeforeCreateSession}
           onSessionClosed={handleSessionClosed}
           onSessionDeleted={handleSessionDeleted}
         />
@@ -341,7 +349,7 @@ export default function Chat() {
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <AlertTriangle className="size-10 mb-3 text-amber-500" />
             <p className="text-sm font-medium">Agent not connected</p>
-            <p className="text-xs mt-1">Go to Settings → General to select and connect an agent</p>
+            <p className="text-xs mt-1">Create a session or enable an agent in Settings → Agents</p>
           </div>
         ) : activeSession ? (
           <ChatWindow

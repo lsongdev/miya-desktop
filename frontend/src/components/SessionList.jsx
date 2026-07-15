@@ -13,13 +13,15 @@ import {
   MessageSquare,
   Trash2,
   X,
+  ChevronDown,
 } from 'lucide-react'
 
-export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, connected, onSessionClosed, onSessionDeleted }) {
+export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, connected, agents = [], currentAgentId, onBeforeCreateSession, onSessionClosed, onSessionDeleted }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [actionError, setActionError] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -45,15 +47,19 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     if (onRefresh) onRefresh.current = fetchSessions
   }, [fetchSessions, onRefresh])
 
-  const handleNewSession = async () => {
+  const handleNewSession = async (agent) => {
     setCreating(true)
+    setActionError(null)
+    setMenuOpen(false)
     try {
+      await onBeforeCreateSession?.(agent)
       const cwd = await DefaultCwd()
       const session = await CreateSession(cwd)
       await fetchSessions()
       ;(onNewSessionProp || onSelectSession)(session)
     } catch (err) {
       console.error('Create session error:', err)
+      setActionError(`Create failed: ${err?.toString() || err}`)
     } finally {
       setCreating(false)
     }
@@ -94,19 +100,43 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   return (
     <div className="flex flex-col h-full border-r bg-card">
       <div className="shrink-0 p-3 border-b">
-        <Button
-          className="w-full"
-          size="sm"
-          onClick={handleNewSession}
-          disabled={creating || !connected}
-        >
-          {creating ? (
-            <Loader2 className="size-3 animate-spin" />
-          ) : (
-            <Plus className="size-3" />
+        <div className="relative flex">
+          <Button
+            className="flex-1 rounded-r-none"
+            size="sm"
+            onClick={() => handleNewSession(agents.find((agent) => agent.id === currentAgentId) || agents[0])}
+            disabled={creating || agents.length === 0}
+          >
+            {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+            New Session
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            className="rounded-l-none border-l-0"
+            onClick={() => setMenuOpen((open) => !open)}
+            disabled={creating || agents.length <= 1}
+            title="Choose agent"
+          >
+            <ChevronDown className="size-3.5" />
+          </Button>
+          {menuOpen && (
+            <div className="absolute left-0 right-0 top-8 z-20 rounded-md border bg-popover p-1 shadow-md">
+              {agents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => handleNewSession(agent)}
+                  className={`flex w-full min-w-0 flex-col rounded px-2 py-1.5 text-left text-xs hover:bg-muted ${
+                    agent.id === currentAgentId ? 'bg-muted' : ''
+                  }`}
+                >
+                  <span className="truncate font-medium">{agent.name || agent.id}</span>
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">{agent.command}</span>
+                </button>
+              ))}
+            </div>
           )}
-          New Session
-        </Button>
+        </div>
       </div>
 
       {actionError && (
@@ -124,7 +154,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       <div className="flex-1 overflow-y-auto">
         {!connected ? (
           <div className="py-8 px-3 text-center text-xs text-muted-foreground">
-            Connect an agent to view sessions
+            Create a session to connect an agent
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-8">

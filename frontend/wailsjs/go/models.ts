@@ -320,6 +320,7 @@ export namespace config {
 	export class ACPAgentConfig {
 	    id: string;
 	    name?: string;
+	    enabled?: boolean;
 	    type?: string;
 	    command?: string;
 	    args?: string[];
@@ -334,6 +335,7 @@ export namespace config {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.enabled = source["enabled"];
 	        this.type = source["type"];
 	        this.command = source["command"];
 	        this.args = source["args"];

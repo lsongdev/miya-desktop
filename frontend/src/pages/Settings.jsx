@@ -65,38 +65,28 @@ function ConfigError({ error }) {
 }
 
 function GeneralSettings() {
-  const { agents, selectedAgent, selectedAgentId, setSelectedAgentId, connected, connecting, agentInfo, error, connect, disconnect } = useAgent()
+  const { agents, selectedAgent, connected, connecting, agentInfo, error, connect, disconnect } = useAgent()
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">General</h2>
-      <p className="text-sm text-muted-foreground">
-        Select the active ACP agent for chat conversations.
-      </p>
+      <p className="text-sm text-muted-foreground">View the current ACP connection state.</p>
 
       <div className="rounded-lg border bg-card p-6 space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Active Agent</label>
-          <div className="flex gap-2">
-            <select
-              value={selectedAgentId}
-              onChange={(e) => setSelectedAgentId(e.target.value)}
-              className="flex-1 h-9 rounded-md border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-            >
-              {agents.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-            {connected ? (
-              <Button variant="outline" onClick={disconnect} disabled={connecting}>
-                Disconnect
-              </Button>
-            ) : (
-              <Button onClick={() => connect()} disabled={connecting || !selectedAgent}>
-                {connecting ? <Loader2 className="size-4 animate-spin" /> : 'Connect'}
-              </Button>
-            )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">{selectedAgent?.name || 'No enabled agent'}</p>
+            <p className="text-xs text-muted-foreground">{agents.length} enabled agent{agents.length === 1 ? '' : 's'}</p>
           </div>
+          {connected ? (
+            <Button variant="outline" onClick={disconnect} disabled={connecting}>
+              Disconnect
+            </Button>
+          ) : (
+            <Button onClick={() => connect()} disabled={connecting || !selectedAgent}>
+              {connecting ? <Loader2 className="size-4 animate-spin" /> : 'Connect'}
+            </Button>
+          )}
         </div>
 
         {selectedAgent && (
@@ -135,9 +125,9 @@ function AgentsSettings() {
   const agents = Array.isArray(config.agents) ? config.agents : []
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState({ id: '', name: '', type: 'stdio', command: '', args: '', url: '', headers: '' })
+  const [form, setForm] = useState({ id: '', name: '', enabled: true, type: 'stdio', command: '', args: '', url: '', headers: '' })
 
-  const reset = () => setForm({ id: '', name: '', type: 'stdio', command: '', args: '', url: '', headers: '' })
+  const reset = () => setForm({ id: '', name: '', enabled: true, type: 'stdio', command: '', args: '', url: '', headers: '' })
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (agent) => {
     setAdding(false)
@@ -145,6 +135,7 @@ function AgentsSettings() {
     setForm({
       id: agent.id || '',
       name: agent.name || '',
+      enabled: agent.enabled !== false,
       type: agent.type || 'stdio',
       command: agent.command || '',
       args: (agent.args || []).join(' '),
@@ -161,6 +152,7 @@ function AgentsSettings() {
       agents.push({
         id,
         name: form.name.trim(),
+        enabled: form.enabled,
         type: form.type.trim() || 'stdio',
         command: form.command.trim(),
         args: parseList(form.args),
@@ -189,6 +181,15 @@ function AgentsSettings() {
         <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
         <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder="HTTP/SSE URL" className={monoInputClass} />
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={form.enabled}
+          onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
+          className="size-4"
+        />
+        Enable for new chat sessions
+      </label>
       <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
       <div className="flex gap-1.5">
         <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || saving}><Check className="size-3.5 mr-1" /> Save</Button>
@@ -215,7 +216,9 @@ function AgentsSettings() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="font-medium text-sm">{agent.name || agent.id}</p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">{agent.type || 'stdio'} / {commandFromAgent(agent)}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">
+                    {agent.enabled === false ? 'disabled' : 'enabled'} / {agent.type || 'stdio'} / {commandFromAgent(agent)}
+                  </p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">
                   <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
