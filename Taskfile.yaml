@@ -3,6 +3,7 @@ version: "3"
 vars:
   APP_NAME: miya-desktop
   BIN_DIR: bin
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
 
 tasks:
   app:build:
@@ -11,6 +12,12 @@ tasks:
       - cd frontend && npm run build
       - mkdir -p {{.BIN_DIR}}
       - go build -o {{.BIN_DIR}}/{{.APP_NAME}} .
+
+  build:backend:
+    summary: Build only the Go backend for dev mode.
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -gcflags=all="-N -l" -o {{.BIN_DIR}}/{{.APP_NAME}} .
 
   build:
     summary: Build the Miya Desktop spike binary.
@@ -36,7 +43,18 @@ tasks:
     cmds:
       - ./{{.BIN_DIR}}/{{.APP_NAME}}
 
-  dev:
-    summary: Run frontend and backend manually during the v3 spike.
+  run:dev:
+    summary: Run the current dev binary.
     cmds:
-      - echo "Run 'npm run dev' in frontend and 'go run .' in the project root while this spike is being finalized."
+      - ./{{.BIN_DIR}}/{{.APP_NAME}}
+
+  frontend:dev:
+    summary: Run the Vite frontend dev server.
+    dir: frontend
+    cmds:
+      - npm run dev
+
+  dev:
+    summary: Run the Wails v3 dev loop.
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}

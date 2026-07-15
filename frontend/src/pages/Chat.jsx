@@ -4,7 +4,7 @@ import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
 import { CancelSession, DefaultCwd, SendPrompt, LoadSession } from '../../bindings/wails-app/app'
-import { Events } from '/wails/runtime.js'
+import { Events } from '@wailsio/runtime'
 import {
   Send,
   Square,
