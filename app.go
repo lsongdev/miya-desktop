@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"wails-app/internal/agent"
 	"wails-app/internal/agentclient"
@@ -13,6 +16,8 @@ import (
 	miyaconfig "wails-app/internal/config"
 
 	"github.com/lsongdev/miya-agents/acp"
+	"github.com/lsongdev/miya-agents/anthropic"
+	"github.com/lsongdev/miya-agents/openai"
 )
 
 // App struct
@@ -213,6 +218,82 @@ func (a *App) LoadMiyaConfig() (*miyaconfig.Config, error) {
 
 func (a *App) SaveMiyaConfig(cfg *miyaconfig.Config) error {
 	return a.config.Save(cfg)
+}
+
+func (a *App) FetchProviderModels(providerID string) ([]string, error) {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return nil, err
+	}
+	provider, ok := cfg.Providers[providerID]
+	if !ok {
+		return nil, fmt.Errorf("provider %q not found", providerID)
+	}
+	if strings.TrimSpace(provider.APIKey) == "" {
+		return nil, fmt.Errorf("provider %q has no API key", providerID)
+	}
+
+	providerType := strings.ToLower(strings.TrimSpace(provider.Type))
+	if providerType == "" {
+		providerType = "openai"
+	}
+	switch providerType {
+	case "anthropic":
+		return fetchAnthropicModels(provider.APIBase, provider.APIKey)
+	default:
+		return fetchOpenAIModels(provider.APIBase, provider.APIKey)
+	}
+}
+
+func fetchOpenAIModels(apiBase, apiKey string) ([]string, error) {
+	client, err := openai.NewClient(&openai.Configuration{
+		API:    providerAPIBase(apiBase, "https://api.openai.com/v1"),
+		APIKey: apiKey,
+	})
+	if err != nil {
+		return nil, err
+	}
+	client.SetHTTPClient(&http.Client{Timeout: 15 * time.Second})
+	modelsResp, err := client.Models()
+	if err != nil {
+		return nil, err
+	}
+	models := make([]string, 0, len(modelsResp))
+	for _, model := range modelsResp {
+		if model.ID != "" {
+			models = append(models, model.ID)
+		}
+	}
+	sort.Strings(models)
+	return models, nil
+}
+
+func fetchAnthropicModels(apiBase, apiKey string) ([]string, error) {
+	client := anthropic.NewClient(&anthropic.Configuration{
+		API:    providerAPIBase(apiBase, "https://api.anthropic.com"),
+		APIKey: apiKey,
+	})
+	client.SetHTTPClient(&http.Client{Timeout: 15 * time.Second})
+	modelsResp, err := client.Models(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	models := make([]string, 0, len(modelsResp))
+	for _, model := range modelsResp {
+		if model.ID != "" {
+			models = append(models, model.ID)
+		}
+	}
+	sort.Strings(models)
+	return models, nil
+}
+
+func providerAPIBase(apiBase, fallback string) string {
+	base := strings.TrimRight(strings.TrimSpace(apiBase), "/")
+	if base == "" {
+		return fallback
+	}
+	return base
 }
 
 func (a *App) ChannelsServiceStatus() channelservice.Status {

@@ -38,6 +38,10 @@ export function DisconnectAgent() {
   return window['go']['main']['App']['DisconnectAgent']();
 }
 
+export function FetchProviderModels(arg1) {
+  return window['go']['main']['App']['FetchProviderModels'](arg1);
+}
+
 export function GetConversation(arg1) {
   return window['go']['main']['App']['GetConversation'](arg1);
 }

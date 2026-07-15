@@ -23,6 +23,8 @@ export function DeleteSession(arg1:string):Promise<void>;
 
 export function DisconnectAgent():Promise<void>;
 
+export function FetchProviderModels(arg1:string):Promise<Array<string>>;
+
 export function GetConversation(arg1:string):Promise<conversation.Conversation>;
 
 export function Greet(arg1:string):Promise<string>;
