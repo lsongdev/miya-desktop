@@ -583,20 +583,20 @@ function ChannelsSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Channels</h2>
-          <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant={service.running ? 'outline' : 'default'} onClick={toggleService} disabled={serviceBusy}>
+              {serviceBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+              {service.running ? 'Stop Service' : 'Start Service'}
+            </Button>
+            <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+              <Plus className="size-3.5 mr-1" /> Add Channel
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant={service.running ? 'outline' : 'default'} onClick={toggleService} disabled={serviceBusy}>
-            {serviceBusy && <Loader2 className="size-3.5 mr-1 animate-spin" />}
-            {service.running ? 'Stop Service' : 'Start Service'}
-          </Button>
-          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-            <Plus className="size-3.5 mr-1" /> Add Channel
-          </Button>
-        </div>
+        <p className="text-sm text-muted-foreground">Manage remote-control channel config in {path || '~/.miya/config.json'}.</p>
       </div>
       <div className="rounded-lg border bg-card px-4 py-3 text-xs">
         <div className="flex items-center gap-2">
