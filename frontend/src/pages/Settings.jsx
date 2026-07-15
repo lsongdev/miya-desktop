@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { ChannelsServiceStatus, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
+import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
@@ -294,18 +294,29 @@ function AgentsSettings() {
 function ProfilesSettings() {
   const { config, saveConfig, saving, error } = useMiyaConfig()
   const profiles = entriesOf(config.profiles)
+  const providers = entriesOf(config.providers)
+  const defaultProvider = providers[0]?.id || ''
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [modelOptions, setModelOptions] = useState([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState(null)
   const [form, setForm] = useState({
-    id: '', provider: '', model: '', workspace: '', maxTokens: '', temperature: '',
+    id: 'default', provider: defaultProvider, model: '', workspace: '', maxTokens: '', temperature: '',
     contextWindowTokens: '', contextWarnRatio: '',
   })
 
-  const reset = () => setForm({ id: '', provider: '', model: '', workspace: '', maxTokens: '', temperature: '', contextWindowTokens: '', contextWarnRatio: '' })
+  const reset = () => {
+    setForm({ id: 'default', provider: providers[0]?.id || '', model: '', workspace: '', maxTokens: '', temperature: '', contextWindowTokens: '', contextWarnRatio: '' })
+    setModelOptions([])
+    setModelsError(null)
+  }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
   const startEdit = (profile) => {
     setAdding(false)
     setEditing(profile.id)
+    setModelOptions([])
+    setModelsError(null)
     setForm({
       id: profile.id,
       provider: profile.provider || '',
@@ -318,6 +329,24 @@ function ProfilesSettings() {
     })
   }
   const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleProviderChange = (provider) => {
+    setForm((f) => ({ ...f, provider }))
+    setModelOptions([])
+    setModelsError(null)
+  }
+  const handleFetchModels = async () => {
+    if (!form.provider.trim()) return
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const models = await FetchProviderModels(form.provider.trim())
+      setModelOptions(models || [])
+    } catch (err) {
+      setModelsError(err?.toString?.() || String(err))
+    } finally {
+      setModelsLoading(false)
+    }
+  }
   const handleSave = async () => {
     const id = form.id.trim()
     if (!id || !form.provider.trim()) return
@@ -347,16 +376,35 @@ function ProfilesSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <div className="grid gap-2 md:grid-cols-2">
-        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile ID" className={inputClass} autoFocus />
-        <Input value={form.provider} onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))} placeholder="Provider ID" className={inputClass} />
-        <Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="Model" className={monoInputClass} />
-        <Input value={form.workspace} onChange={(e) => setForm((f) => ({ ...f, workspace: e.target.value }))} placeholder="Workspace" className={monoInputClass} />
-        <Input value={form.maxTokens} onChange={(e) => setForm((f) => ({ ...f, maxTokens: e.target.value }))} placeholder="Max tokens" className={monoInputClass} />
-        <Input value={form.temperature} onChange={(e) => setForm((f) => ({ ...f, temperature: e.target.value }))} placeholder="Temperature" className={monoInputClass} />
-        <Input value={form.contextWindowTokens} onChange={(e) => setForm((f) => ({ ...f, contextWindowTokens: e.target.value }))} placeholder="Context window tokens" className={monoInputClass} />
-        <Input value={form.contextWarnRatio} onChange={(e) => setForm((f) => ({ ...f, contextWarnRatio: e.target.value }))} placeholder="Context warn ratio" className={monoInputClass} />
+      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile ID" className={inputClass} autoFocus />
+      <select value={form.provider} onChange={(e) => handleProviderChange(e.target.value)} className={selectClass}>
+        <option value="" disabled>{providers.length ? 'Select provider' : 'No providers configured'}</option>
+        {providers.map((provider) => (
+          <option key={provider.id} value={provider.id}>{provider.id}</option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <Input
+          value={form.model}
+          onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+          placeholder="Model"
+          className={monoInputClass}
+          list="profile-model-options"
+        />
+        <datalist id="profile-model-options">
+          {modelOptions.map((model) => <option key={model} value={model} />)}
+        </datalist>
+        <Button size="sm" variant="outline" onClick={handleFetchModels} disabled={!form.provider.trim() || modelsLoading}>
+          {modelsLoading && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+          Fetch
+        </Button>
       </div>
+      {modelsError && <p className="text-xs text-destructive">{modelsError}</p>}
+      <Input value={form.workspace} onChange={(e) => setForm((f) => ({ ...f, workspace: e.target.value }))} placeholder="Workspace" className={monoInputClass} />
+      <Input value={form.maxTokens} onChange={(e) => setForm((f) => ({ ...f, maxTokens: e.target.value }))} placeholder="Max tokens" className={monoInputClass} />
+      <Input value={form.temperature} onChange={(e) => setForm((f) => ({ ...f, temperature: e.target.value }))} placeholder="Temperature" className={monoInputClass} />
+      <Input value={form.contextWindowTokens} onChange={(e) => setForm((f) => ({ ...f, contextWindowTokens: e.target.value }))} placeholder="Context window tokens" className={monoInputClass} />
+      <Input value={form.contextWarnRatio} onChange={(e) => setForm((f) => ({ ...f, contextWarnRatio: e.target.value }))} placeholder="Context warn ratio" className={monoInputClass} />
       <div className="flex gap-1.5">
         <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || !form.provider.trim() || saving}>
           <Check className="size-3.5 mr-1" /> Save
