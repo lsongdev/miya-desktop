@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="build/appicon.png" alt="Miya" width="96" height="96">
+</p>
+
 # Miya Desktop
 
 Miya Desktop is an ACP-native desktop workspace for AI agents. It brings local agent runtimes, external ACP agents, session management, MCP tools, and remote-control channels into a single client built for day-to-day agent work.
@@ -133,7 +137,7 @@ npm run build
 
 ## Release
 
-GitHub Actions provides a macOS release workflow:
+GitHub Actions provides a release workflow:
 
 ```text
 .github/workflows/release.yml
@@ -145,10 +149,11 @@ The workflow checks out:
 - `miya-agents`
 - `miya-channels`
 
-It builds a macOS universal Wails app and uploads a prerelease artifact:
+It builds Wails apps and uploads prerelease artifacts:
 
 ```text
 miya-desktop-darwin-universal.zip
+miya-desktop-windows-amd64.zip
 ```
 
 Manual release trigger:
