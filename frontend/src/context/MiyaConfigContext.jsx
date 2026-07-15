@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { LoadMiyaConfig, MiyaConfigPath, SaveMiyaConfig } from '../../wailsjs/go/main/App'
+import { LoadMiyaConfig, MiyaConfigPath, SaveMiyaConfig } from '../../bindings/wails-app/app'
 
 const MiyaConfigContext = createContext(null)
 

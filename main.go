@@ -2,38 +2,82 @@ package main
 
 import (
 	"embed"
+	"log"
 
-	"github.com/wailsapp/wails/v2"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+//go:embed build/appicon.png
+var appIcon []byte
 
-	// Create application with options
-	err := wails.Run(&options.App{
+func main() {
+	var wailsApp *application.App
+	appService := NewApp(func(name string, data ...any) {
+		if wailsApp != nil {
+			wailsApp.Event.Emit(name, data...)
+		}
+	})
+
+	wailsApp = application.New(application.Options{
+		Name:        "Miya Desktop",
+		Description: "AI agent desktop client",
+		Icon:        appIcon,
+		Services: []application.Service{
+			application.NewService(appService),
+		},
+		Assets: application.AssetOptions{
+			Handler: application.BundledAssetFileServer(assets),
+		},
+		Mac: application.MacOptions{
+			ApplicationShouldTerminateAfterLastWindowClosed: false,
+		},
+	})
+
+	window := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:      "main",
 		Title:     "Miya Desktop",
 		Width:     960,
 		Height:    600,
 		MinWidth:  800,
 		MinHeight: 450,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		// BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:  app.startup,
-		OnShutdown: app.shutdown,
-		Bind: []interface{}{
-			app,
-		},
+		URL:       "/",
 	})
 
+	quitting := false
+	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if quitting {
+			return
+		}
+		window.Hide()
+		e.Cancel()
+	})
+
+	tray := wailsApp.SystemTray.New()
+	tray.SetIcon(appIcon)
+	tray.SetTooltip("Miya Desktop")
+	tray.OnClick(func() {
+		window.Show()
+		window.Focus()
+	})
+
+	trayMenu := wailsApp.NewMenu()
+	trayMenu.Add("Show Miya Desktop").OnClick(func(ctx *application.Context) {
+		window.Show()
+		window.Focus()
+	})
+	trayMenu.AddSeparator()
+	trayMenu.Add("Quit").OnClick(func(ctx *application.Context) {
+		quitting = true
+		wailsApp.Quit()
+	})
+	tray.SetMenu(trayMenu)
+
+	err := wailsApp.Run()
 	if err != nil {
-		println("Error:", err.Error())
+		log.Fatal(err)
 	}
 }
