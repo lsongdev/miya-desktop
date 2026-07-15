@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../wailsjs/go/main/App'
+import { NavigationContext } from '../hooks/useNavigate'
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
@@ -291,7 +292,7 @@ function AgentsSettings() {
   )
 }
 
-function ProfilesSettings() {
+function ProfilesSettings({ onSelectItem }) {
   const { config, saveConfig, saving, error } = useMiyaConfig()
   const profiles = entriesOf(config.profiles)
   const providers = entriesOf(config.providers)
@@ -377,12 +378,19 @@ function ProfilesSettings() {
   const editor = (
     <div className="space-y-2">
       <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile ID" className={inputClass} autoFocus />
-      <select value={form.provider} onChange={(e) => handleProviderChange(e.target.value)} className={selectClass}>
-        <option value="" disabled>{providers.length ? 'Select provider' : 'No providers configured'}</option>
-        {providers.map((provider) => (
-          <option key={provider.id} value={provider.id}>{provider.id}</option>
-        ))}
-      </select>
+      <div className="flex gap-2">
+        <select value={form.provider} onChange={(e) => handleProviderChange(e.target.value)} className={`${selectClass} flex-1`}>
+          <option value="" disabled>{providers.length ? 'Select provider' : 'No providers configured'}</option>
+          {providers.map((provider) => (
+            <option key={provider.id} value={provider.id}>{provider.id}</option>
+          ))}
+        </select>
+        {providers.length === 0 && (
+          <Button size="sm" variant="outline" onClick={() => onSelectItem?.('providers')}>
+            Go providers →
+          </Button>
+        )}
+      </div>
       <div className="flex gap-2">
         <Input
           value={form.model}
@@ -867,7 +875,14 @@ const settingsContent = {
 
 export default function Settings() {
   const [activeItem, setActiveItem] = useState('general')
+  const { params } = useContext(NavigationContext)
   const ActiveContent = settingsContent[activeItem]
+
+  useEffect(() => {
+    if (params?.settingsTab && settingsContent[params.settingsTab]) {
+      setActiveItem(params.settingsTab)
+    }
+  }, [params?.settingsTab])
 
   return (
     <div className="flex h-full">
@@ -893,7 +908,7 @@ export default function Settings() {
         </nav>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {ActiveContent && <ActiveContent />}
+        {ActiveContent && <ActiveContent onSelectItem={setActiveItem} />}
       </div>
     </div>
   )
