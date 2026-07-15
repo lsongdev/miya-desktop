@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StopChannelsService } from '../../bindings/wails-app/app'
+import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StartWeChatLogin, StopChannelsService } from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
 import { NavigationContext } from '../hooks/useNavigate'
 import {
@@ -666,7 +666,7 @@ function McpSettings() {
 }
 
 function ChannelsSettings() {
-  const { config, saveConfig, saving, error } = useMiyaConfig()
+  const { config, saveConfig, saving, error, reload } = useMiyaConfig()
   const channels = entriesOf(config.channels)
   // TODO: Move this desktop-local preference out of shared ~/.miya/config.json.
   const channelsEnabled = config.channelsEnabled !== false
@@ -675,13 +675,24 @@ function ChannelsSettings() {
   const [localError, setLocalError] = useState(null)
   const [service, setService] = useState({ running: false })
   const [serviceBusy, setServiceBusy] = useState(false)
+  const [loginBusy, setLoginBusy] = useState(false)
   const [form, setForm] = useState({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
 
   useEffect(() => {
     let cancelled = false
     const refresh = () => {
       ChannelsServiceStatus()
-        .then((status) => { if (!cancelled) setService(status) })
+        .then((status) => {
+          if (!cancelled) {
+            setService((prev) => ({
+              ...status,
+              channelEvents: {
+                ...(prev?.channelEvents || {}),
+                ...(status?.channelEvents || {}),
+              },
+            }))
+          }
+        })
         .catch((err) => { if (!cancelled) setService({ running: false, error: err.toString() }) })
     }
     refresh()
@@ -704,6 +715,13 @@ function ChannelsSettings() {
             [payload.channel]: payload,
           },
         }))
+        if (payload.channel === 'wechat' && payload.status === 'authenticated') {
+          setLoginBusy(false)
+          reload?.()
+        }
+        if (payload.channel === 'wechat' && ['error', 'expired', 'cancelled'].includes(payload.status)) {
+          setLoginBusy(false)
+        }
       } catch (err) {
         console.error('Failed to handle channel event', err)
       }
@@ -751,35 +769,32 @@ function ChannelsSettings() {
       const channels = { ...(prev.channels || {}) }
       if (editing && editing !== id) delete channels[editing]
       channels[id] = value
-      return { ...prev, channels, channelsEnabled: id === 'wechat' ? true : prev.channelsEnabled }
+      return { ...prev, channels }
     })
-    if (id === 'wechat') {
-      setAdding(false)
-      setEditing(id)
-      await restartChannelsService()
-      return
+    if (id !== 'wechat') {
+      handleCancel()
     }
-    handleCancel()
   }
 
-  const restartChannelsService = async () => {
-    setServiceBusy(true)
+  const startWeChatLogin = async () => {
     setLocalError(null)
+    setLoginBusy(true)
     try {
-      if (service.running) {
-        await StopChannelsService()
-      }
-      const next = await StartChannelsService()
-      setService(next)
-      return next
+      const value = {}
+      if (form.token.trim()) value.token = form.token.trim()
+      if (form.baseUrl.trim()) value.base_url = form.baseUrl.trim()
+      if (form.cdnBaseUrl.trim()) value.cdn_base_url = form.cdnBaseUrl.trim()
+      await saveConfig((prev) => {
+        const channels = { ...(prev.channels || {}) }
+        channels.wechat = value
+        return { ...prev, channels }
+      })
+      setAdding(false)
+      setEditing('wechat')
+      await StartWeChatLogin(value)
     } catch (err) {
       setLocalError(err.toString())
-      try {
-        setService(await ChannelsServiceStatus())
-      } catch {}
-      throw err
-    } finally {
-      setServiceBusy(false)
+      setLoginBusy(false)
     }
   }
 
@@ -831,7 +846,7 @@ function ChannelsSettings() {
                 <img src={wechatEvent.qrcodeImage} alt="WeChat login QR code" className="size-28 rounded-md border bg-white object-contain p-1" />
               ) : (
                 <div className="flex size-28 items-center justify-center rounded-md border bg-background text-center text-xs text-muted-foreground">
-                  {serviceBusy ? 'Preparing QR...' : 'Save to start login'}
+                  {loginBusy ? 'Preparing QR...' : 'Generate QR'}
                 </div>
               )}
               <div className="min-w-0 space-y-1 text-xs">
@@ -845,9 +860,7 @@ function ChannelsSettings() {
                         ? 'QR code expired, save again to refresh'
                         : wechatEvent?.qrcodeImage
                           ? 'Scan with WeChat to connect'
-                          : service.running
-                            ? 'Waiting for WeChat QR code'
-                            : 'Save this channel to start QR login'}
+                          : 'Generate a QR code to complete login'}
                 </p>
                 {wechatEvent?.qrcodeUrl && <p className="truncate font-mono text-muted-foreground">{wechatEvent.qrcodeUrl}</p>}
                 {wechatEvent?.error && <p className="text-destructive">{wechatEvent.error}</p>}
@@ -859,10 +872,15 @@ function ChannelsSettings() {
         <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder="Channel JSON config" className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving || serviceBusy}>
-          {(saving || serviceBusy) && form.id === 'wechat' ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />}
-          {form.id === 'wechat' ? 'Save & Start Login' : 'Save'}
+        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving}>
+          <Check className="size-3.5 mr-1" /> Save
         </Button>
+        {form.id === 'wechat' && (
+          <Button size="sm" variant="outline" onClick={startWeChatLogin} disabled={saving || loginBusy}>
+            {loginBusy ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />}
+            Generate Login QR
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
       </div>
       <ConfigError error={localError} />

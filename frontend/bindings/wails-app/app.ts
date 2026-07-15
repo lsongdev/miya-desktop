@@ -135,6 +135,10 @@ export function StartChannelsService(): $CancellablePromise<channels$0.Status> {
     });
 }
 
+export function StartWeChatLogin(rawConfig: { [_ in string]?: any }): $CancellablePromise<void> {
+    return $Call.ByID(1172800822, rawConfig);
+}
+
 export function StopChannelsService(): $CancellablePromise<channels$0.Status> {
     return $Call.ByID(1321852108).then(($result: any) => {
         return $$createType0($result);

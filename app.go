@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"wails-app/internal/agent"
@@ -18,6 +20,7 @@ import (
 	"github.com/lsongdev/miya-agents/acp"
 	"github.com/lsongdev/miya-agents/anthropic"
 	"github.com/lsongdev/miya-agents/openai"
+	channelpkg "github.com/lsongdev/miya-channels/channels"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -29,6 +32,10 @@ type App struct {
 
 	config   *miyaconfig.Service
 	channels *channelservice.Service
+
+	wechatLoginMu     sync.Mutex
+	wechatLoginCancel context.CancelFunc
+	wechatLoginID     int64
 }
 
 func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
@@ -78,6 +85,12 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown() {
+	a.wechatLoginMu.Lock()
+	if a.wechatLoginCancel != nil {
+		a.wechatLoginCancel()
+		a.wechatLoginCancel = nil
+	}
+	a.wechatLoginMu.Unlock()
 	if a.channels != nil {
 		_, _ = a.channels.Stop()
 	}
@@ -318,6 +331,94 @@ func (a *App) StartChannelsService() (channelservice.Status, error) {
 
 func (a *App) StopChannelsService() (channelservice.Status, error) {
 	return a.channels.Stop()
+}
+
+func (a *App) StartWeChatLogin(rawConfig map[string]any) error {
+	data, err := json.Marshal(rawConfig)
+	if err != nil {
+		return fmt.Errorf("marshal wechat config: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.wechatLoginMu.Lock()
+	if a.wechatLoginCancel != nil {
+		a.wechatLoginCancel()
+	}
+	a.wechatLoginID++
+	loginID := a.wechatLoginID
+	a.wechatLoginCancel = cancel
+	a.wechatLoginMu.Unlock()
+
+	go func() {
+		defer func() {
+			a.wechatLoginMu.Lock()
+			if a.wechatLoginID == loginID {
+				a.wechatLoginCancel = nil
+			}
+			a.wechatLoginMu.Unlock()
+		}()
+
+		cfg, err := channelpkg.LoginWeChat(ctx, data, channelpkg.ChannelOptions{
+			Emit: func(event channelpkg.ChannelEvent) {
+				a.emit("channel:event", channelservice.ChannelEvent{
+					Channel:     event.Channel,
+					Type:        event.Type,
+					Status:      event.Status,
+					QRCode:      event.QRCode,
+					QRCodeURL:   event.QRCodeURL,
+					QRCodeImage: event.QRCodeImage,
+					Error:       event.Error,
+				})
+			},
+		})
+		if err != nil {
+			if ctx.Err() == nil {
+				a.emit("channel:event", channelservice.ChannelEvent{
+					Channel: "wechat",
+					Type:    "login",
+					Status:  "error",
+					Error:   err.Error(),
+				})
+			}
+			return
+		}
+		if err := a.saveWeChatConfig(cfg); err != nil {
+			a.emit("channel:event", channelservice.ChannelEvent{
+				Channel: "wechat",
+				Type:    "login",
+				Status:  "error",
+				Error:   err.Error(),
+			})
+			return
+		}
+		a.emit("channel:event", channelservice.ChannelEvent{
+			Channel: "wechat",
+			Type:    "login",
+			Status:  "authenticated",
+		})
+	}()
+
+	return nil
+}
+
+func (a *App) saveWeChatConfig(wechatConfig any) error {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return err
+	}
+	if cfg.Channels == nil {
+		cfg.Channels = map[string]any{}
+	}
+	var value map[string]any
+	data, err := json.Marshal(wechatConfig)
+	if err != nil {
+		return fmt.Errorf("marshal wechat login config: %w", err)
+	}
+	if err := json.Unmarshal(data, &value); err != nil {
+		return fmt.Errorf("decode wechat login config: %w", err)
+	}
+	cfg.Channels["wechat"] = value
+	return a.config.Save(cfg)
 }
 
 func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {
