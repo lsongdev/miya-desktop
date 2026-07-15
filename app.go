@@ -23,6 +23,17 @@ type App struct {
 	channels *channelservice.Service
 }
 
+func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
+	return miyaconfig.ACPAgentConfig{
+		ID:      "miya",
+		Name:    "Miya Agents",
+		Enabled: boolPtr(true),
+		Type:    "builtin",
+		Command: "miya-agent",
+		Args:    []string{"acp"},
+	}
+}
+
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{}
@@ -72,6 +83,9 @@ func (a *App) ConnectAgent(command string) error {
 }
 
 func (a *App) ConnectConfiguredAgent(agentID string) error {
+	if agentID == "miya" {
+		return a.manager.ConnectEndpoint(builtinAgentEndpoint())
+	}
 	cfg, err := a.config.Load()
 	if err != nil {
 		return err
@@ -130,7 +144,13 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 	}
 
 	var sessions []agent.Session
+	configuredAgents := make([]miyaconfig.ACPAgentConfig, 0, len(cfg.Agents))
 	for _, endpoint := range cfg.Agents {
+		if endpoint.ID != "miya" {
+			configuredAgents = append(configuredAgents, endpoint)
+		}
+	}
+	for _, endpoint := range append([]miyaconfig.ACPAgentConfig{builtinAgentEndpoint()}, configuredAgents...) {
 		if !endpoint.IsEnabled() {
 			continue
 		}
@@ -245,4 +265,8 @@ func commandString(endpoint miyaconfig.ACPAgentConfig) string {
 		return ""
 	}
 	return strings.Join(append([]string{endpoint.Command}, endpoint.Args...), " ")
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }

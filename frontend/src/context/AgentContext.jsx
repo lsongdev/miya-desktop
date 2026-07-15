@@ -6,9 +6,7 @@ const AgentContext = createContext(null)
 
 const SELECTED_KEY = 'miya-selected-agent'
 
-const DEFAULT_AGENTS = [
-  { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'] },
-]
+const BUILTIN_AGENT = { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'], builtin: true }
 
 function commandFromAgent(agent) {
   if (!agent?.command?.trim()) return ''
@@ -43,7 +41,7 @@ export function AgentProvider({ children }) {
 
   const agents = useMemo(() => {
     const configured = Array.isArray(config.agents) ? config.agents : []
-    const source = configured.length > 0 ? configured : DEFAULT_AGENTS
+    const source = [BUILTIN_AGENT, ...configured.filter((agent) => agent.id !== BUILTIN_AGENT.id)]
     return source
       .filter((agent) => agent.enabled !== false)
       .map(normalizeAgent)

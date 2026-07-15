@@ -77,9 +77,7 @@ func (s *Service) Save(cfg *Config) error {
 
 func defaultConfig() *Config {
 	cfg := &Config{
-		Agents: []ACPAgentConfig{
-			{ID: "miya", Name: "Miya Agents", Enabled: boolPtr(true), Type: "builtin", Command: "miya-agent", Args: []string{"acp"}},
-		},
+		Agents:     []ACPAgentConfig{},
 		Profiles:   map[string]*ProfileConfig{},
 		Providers:  map[string]*ProviderConfig{},
 		McpServers: map[string]*agentsconfig.McpServerConfig{},
@@ -120,8 +118,4 @@ func normalize(cfg *Config) {
 			cfg.McpServers[id] = server
 		}
 	}
-}
-
-func boolPtr(v bool) *bool {
-	return &v
 }

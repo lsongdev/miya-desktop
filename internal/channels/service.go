@@ -120,7 +120,15 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 
 func firstAvailableAgentClient(cfg *miyaconfig.Config, loadConfig agentclient.ConfigLoader) (*acp.Client, string, error) {
 	var lastErr error
-	for _, endpoint := range cfg.Agents {
+	endpoints := append([]miyaconfig.ACPAgentConfig{{
+		ID:      "miya",
+		Name:    "Miya Agents",
+		Enabled: boolPtr(true),
+		Type:    "builtin",
+		Command: "miya-agent",
+		Args:    []string{"acp"},
+	}}, cfg.Agents...)
+	for _, endpoint := range endpoints {
 		if !endpoint.IsEnabled() {
 			continue
 		}
@@ -134,4 +142,8 @@ func firstAvailableAgentClient(cfg *miyaconfig.Config, loadConfig agentclient.Co
 		return nil, "", fmt.Errorf("no enabled ACP agent could be connected: %w", lastErr)
 	}
 	return nil, "", fmt.Errorf("no enabled ACP agent configured")
+}
+
+func boolPtr(v bool) *bool {
+	return &v
 }
