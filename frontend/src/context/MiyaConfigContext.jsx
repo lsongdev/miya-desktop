@@ -4,7 +4,8 @@ import { LoadMiyaConfig, MiyaConfigPath, SaveMiyaConfig } from '../../wailsjs/go
 const MiyaConfigContext = createContext(null)
 
 const emptyConfig = {
-  agents: {},
+  agents: [],
+  profiles: {},
   providers: {},
   mcpServers: {},
   channels: {},
@@ -14,7 +15,8 @@ function normalizeConfig(config) {
   return {
     ...emptyConfig,
     ...(config || {}),
-    agents: config?.agents || {},
+    agents: Array.isArray(config?.agents) ? config.agents : [],
+    profiles: config?.profiles || {},
     providers: config?.providers || {},
     mcpServers: config?.mcpServers || {},
     channels: config?.channels || {},

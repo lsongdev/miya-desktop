@@ -41,11 +41,31 @@ Near-term desktop work:
 
 ### Agents
 
-Agents bind a provider/model/workspace.
+Agents are externally callable ACP endpoints.
 
 ```json
 {
-  "agents": {
+  "agents": [
+    {
+      "id": "miya",
+      "name": "Miya Agents",
+      "type": "stdio",
+      "command": "miya",
+      "args": ["acp"]
+    }
+  ]
+}
+```
+
+Desktop should support multiple configured ACP agents so users can switch between Miya Agents, opencode, Codex, Claude, and future remote endpoints.
+
+### Profiles
+
+Profiles bind a provider/model/workspace for `miya-agents` runtime behavior.
+
+```json
+{
+  "profiles": {
     "default": {
       "provider": "deepseek",
       "model": "deepseek-chat",
@@ -60,8 +80,8 @@ Agents bind a provider/model/workspace.
 
 Desktop should distinguish:
 
-- Agent profile: persisted config
-- Agent runtime: active ACP connection
+- Profile: persisted `miya-agents` runtime config
+- Agent: active ACP endpoint/connection
 
 ### MCP Servers
 
