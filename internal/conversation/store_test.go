@@ -57,6 +57,28 @@ func TestStoreSeparatesReplayedMessagesWithoutMessageID(t *testing.T) {
 	}
 }
 
+func TestStoreResetSessionDropsPreviousReplay(t *testing.T) {
+	store := testStore()
+
+	store.ResetSessionWithACP("miya:s1", "s1", "/tmp/project")
+	store.ApplyACPEvent("miya:s1", mustEvent(t, `{
+		"sessionUpdate": "user_message_chunk",
+		"content": {"type": "text", "text": "first"}
+	}`))
+	store.CompleteStreaming("miya:s1")
+
+	snap := store.ResetSessionWithACP("miya:s1", "s1", "/tmp/project")
+	if len(snap.Conversation.Messages) != 0 {
+		t.Fatalf("messages after reset = %d", len(snap.Conversation.Messages))
+	}
+	if snap.Conversation.ACPSessionID != "s1" {
+		t.Fatalf("acp session id = %q", snap.Conversation.ACPSessionID)
+	}
+	if snap.Conversation.Cwd != "/tmp/project" {
+		t.Fatalf("cwd = %q", snap.Conversation.Cwd)
+	}
+}
+
 func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	store := testStore()
 

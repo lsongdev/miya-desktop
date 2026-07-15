@@ -25,15 +25,39 @@ func NewStore() *Store {
 }
 
 func (s *Store) RegisterSession(sessionID, cwd string) Snapshot {
+	return s.RegisterSessionWithACP(sessionID, sessionID, cwd)
+}
+
+func (s *Store) RegisterSessionWithACP(conversationID, acpSessionID, cwd string) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	conv := s.ensureConversationLocked(sessionID)
+	conv := s.ensureConversationLocked(conversationID)
+	if acpSessionID != "" {
+		conv.ACPSessionID = acpSessionID
+	}
 	if cwd != "" {
 		conv.Cwd = cwd
 	}
 	conv.UpdatedAt = s.nowString()
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_registered"}
+}
+
+func (s *Store) ResetSessionWithACP(conversationID, acpSessionID, cwd string) Snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := s.nowString()
+	conv := &Conversation{
+		ID:           conversationID,
+		ACPSessionID: acpSessionID,
+		Cwd:          cwd,
+		Source:       Source{Type: "desktop"},
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	s.conversations[conversationID] = conv
+	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_reset"}
 }
 
 func (s *Store) Snapshot(sessionID string) (Snapshot, bool) {

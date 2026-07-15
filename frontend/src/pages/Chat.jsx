@@ -162,7 +162,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
       try {
         const snapshot = event?.data ?? event
         const next = snapshot?.conversation
-        if (next?.acpSessionId !== sessionId) return
+        if (next?.id !== sessionId && next?.acpSessionId !== sessionId) return
         setConversation(next)
         if (snapshot.stopReason) setStopReason(snapshot.stopReason)
       } catch (err) {
@@ -378,7 +378,7 @@ export default function Chat() {
         ) : activeSession ? (
           <ChatWindow
             key={sessionKey(activeSession)}
-            sessionId={activeSession.id}
+            sessionId={sessionKey(activeSession)}
             session={activeSession}
             shouldLoad={shouldLoad}
             onLoadComplete={handleLoadComplete}

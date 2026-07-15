@@ -66,6 +66,28 @@ func (m *Manager) emitEvent(name string, data any) {
 	}
 }
 
+func (m *Manager) currentAgentID() string {
+	if m.endpoint == nil || strings.TrimSpace(m.endpoint.ID) == "" {
+		return ""
+	}
+	return m.endpoint.ID
+}
+
+func (m *Manager) scopedSessionID(sessionID string) string {
+	agentID := m.currentAgentID()
+	if agentID == "" || strings.Contains(sessionID, ":") {
+		return sessionID
+	}
+	return agentID + ":" + sessionID
+}
+
+func (m *Manager) splitSessionRef(sessionRef string) (conversationID string, acpSessionID string) {
+	if agentID, raw, ok := strings.Cut(sessionRef, ":"); ok && agentID != "" && raw != "" {
+		return sessionRef, raw
+	}
+	return m.scopedSessionID(sessionRef), sessionRef
+}
+
 func (m *Manager) Connect(command string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -138,9 +160,11 @@ func (m *Manager) handleNotification(method string, params json.RawMessage) {
 			log.Printf("[agent] Failed to parse session/update: %v", err)
 			return
 		}
-		snapshot := m.store.ApplyACPEvent(envelope.SessionID, event)
+		conversationID := m.scopedSessionID(envelope.SessionID)
+		m.store.RegisterSessionWithACP(conversationID, envelope.SessionID, "")
+		snapshot := m.store.ApplyACPEvent(conversationID, event)
 		m.emitEvent("session:update", map[string]any{
-			"sessionId": envelope.SessionID,
+			"sessionId": conversationID,
 			"event":     event,
 		})
 		m.emitEvent("conversation:update", snapshot)
@@ -299,18 +323,19 @@ func (m *Manager) clientForLongCall() (*acp.Client, error) {
 
 func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
-		log.Printf("[agent] LoadSession: id=%q cwd=%q", sessionID, cwd)
-		snapshot := m.store.RegisterSession(sessionID, cwd)
+		conversationID, acpSessionID := m.splitSessionRef(sessionID)
+		log.Printf("[agent] LoadSession: id=%q acp=%q cwd=%q", conversationID, acpSessionID, cwd)
+		snapshot := m.store.ResetSessionWithACP(conversationID, acpSessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
 		_, err := client.LoadSession(&acp.LoadSessionRequest{
-			SessionID:  acp.SessionID(sessionID),
+			SessionID:  acp.SessionID(acpSessionID),
 			Cwd:        cwd,
 			McpServers: []acp.McpServer{},
 		})
 		if err != nil {
 			return fmt.Errorf("agent: load session: %w", err)
 		}
-		if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
+		if snapshot, ok := m.store.CompleteStreaming(conversationID); ok {
 			m.emitEvent("conversation:update", snapshot)
 		}
 		return nil
@@ -328,9 +353,16 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 			return fmt.Errorf("agent: new session: %w", err)
 		}
 		sessionID := string(resp.SessionID)
+		conversationID := m.scopedSessionID(sessionID)
 		log.Printf("[agent] NewSession created: id=%q", sessionID)
-		session = &Session{ID: sessionID, Cwd: cwd}
-		snapshot := m.store.RegisterSession(sessionID, cwd)
+		session = &Session{
+			ID:        sessionID,
+			Key:       conversationID,
+			Cwd:       cwd,
+			AgentID:   m.currentAgentID(),
+			AgentName: m.currentAgentID(),
+		}
+		snapshot := m.store.RegisterSessionWithACP(conversationID, sessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
 		return nil
 	})
@@ -338,8 +370,10 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 }
 
 func (m *Manager) Prompt(sessionID, message string) error {
-	log.Printf("[agent] Prompt: session=%q message=%q", sessionID, message)
-	snapshot := m.store.AddLocalUserMessage(sessionID, message)
+	conversationID, acpSessionID := m.splitSessionRef(sessionID)
+	log.Printf("[agent] Prompt: session=%q acp=%q message=%q", conversationID, acpSessionID, message)
+	m.store.RegisterSessionWithACP(conversationID, acpSessionID, "")
+	snapshot := m.store.AddLocalUserMessage(conversationID, message)
 	m.emitEvent("conversation:update", snapshot)
 
 	client, err := m.clientForLongCall()
@@ -348,7 +382,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 	}
 
 	resp, err := client.Prompt(&acp.PromptRequest{
-		SessionID: acp.SessionID(sessionID),
+		SessionID: acp.SessionID(acpSessionID),
 		Prompt: []acp.ContentBlock{
 			{Type: "text", Text: message},
 		},
@@ -364,7 +398,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 			return fmt.Errorf("agent: reconnect failed: %w (original: %v)", reconnErr, err)
 		}
 		resp, err = client.Prompt(&acp.PromptRequest{
-			SessionID: acp.SessionID(sessionID),
+			SessionID: acp.SessionID(acpSessionID),
 			Prompt: []acp.ContentBlock{
 				{Type: "text", Text: message},
 			},
@@ -374,7 +408,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 		return fmt.Errorf("agent: prompt: %w", err)
 	}
 
-	if snapshot, ok := m.store.CompleteStreaming(sessionID); ok {
+	if snapshot, ok := m.store.CompleteStreaming(conversationID); ok {
 		m.emitEvent("conversation:update", map[string]any{
 			"conversation": snapshot.Conversation,
 			"eventType":    snapshot.EventType,
@@ -392,7 +426,8 @@ func (m *Manager) CancelSession(sessionID string) error {
 	if client == nil {
 		return fmt.Errorf("agent: not connected")
 	}
-	if err := client.CancelSession(acp.SessionID(sessionID)); err != nil {
+	_, acpSessionID := m.splitSessionRef(sessionID)
+	if err := client.CancelSession(acp.SessionID(acpSessionID)); err != nil {
 		return fmt.Errorf("agent: cancel session: %w", err)
 	}
 	return nil
@@ -411,13 +446,16 @@ func (m *Manager) ListSessions() ([]Session, error) {
 				ID:  string(s.SessionID),
 				Cwd: s.Cwd,
 			}
+			session.Key = m.scopedSessionID(session.ID)
+			session.AgentID = m.currentAgentID()
+			session.AgentName = m.currentAgentID()
 			if s.Title != nil {
 				session.Title = *s.Title
 			}
 			if s.UpdatedAt != nil {
 				session.UpdatedAt = *s.UpdatedAt
 			}
-			m.store.RegisterSession(session.ID, session.Cwd)
+			m.store.RegisterSessionWithACP(session.Key, session.ID, session.Cwd)
 			sessions = append(sessions, session)
 		}
 		return nil
@@ -435,8 +473,9 @@ func (m *Manager) GetConversation(sessionID string) (*conversation.Conversation,
 
 func (m *Manager) CloseSession(sessionID string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
+		_, acpSessionID := m.splitSessionRef(sessionID)
 		_, err := client.CloseSession(&acp.CloseSessionRequest{
-			SessionID: acp.SessionID(sessionID),
+			SessionID: acp.SessionID(acpSessionID),
 		})
 		return err
 	})
@@ -445,8 +484,9 @@ func (m *Manager) CloseSession(sessionID string) error {
 func (m *Manager) DeleteSession(sessionID string) error {
 	log.Printf("[agent] DeleteSession: id=%q", sessionID)
 	err := m.runWithRetry(func(client *acp.Client) error {
+		_, acpSessionID := m.splitSessionRef(sessionID)
 		_, err := client.DeleteSession(&acp.DeleteSessionRequest{
-			SessionID: acp.SessionID(sessionID),
+			SessionID: acp.SessionID(acpSessionID),
 		})
 		return err
 	})
