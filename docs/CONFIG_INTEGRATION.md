@@ -135,6 +135,8 @@ Desktop integration should eventually support:
 - start/stop `miya-channels`
 - inspect remote conversations
 
+TODO: `channelsEnabled` is currently stored in shared `~/.miya/config.json`, but it is a Desktop-local preference for whether Desktop should run the channel service. Move it to a Desktop-owned local preference store once that exists.
+
 ## Backend API Shape
 
 Suggested Wails methods:
