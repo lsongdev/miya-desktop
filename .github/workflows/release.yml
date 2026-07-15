@@ -63,7 +63,7 @@ jobs:
         working-directory: miya-desktop
         run: |
           mkdir -p build/artifacts
-          ditto -c -k --keepParent build/bin/miya-desktop.app build/artifacts/miya-desktop-darwin-universal.zip
+          ditto -c -k --keepParent build/bin/Miya.app build/artifacts/miya-desktop-darwin-universal.zip
 
       - name: Upload release
         uses: softprops/action-gh-release@v2
