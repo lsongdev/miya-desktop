@@ -117,6 +117,10 @@ function usageLabel(usage) {
   return `${usage.used || 0}/${usage.size} (${percent}%)`
 }
 
+function sessionKey(session) {
+  return session?.key || session?.id || ''
+}
+
 function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [conversation, setConversation] = useState(null)
   const [input, setInput] = useState('')
@@ -296,8 +300,22 @@ export default function Chat() {
   const refreshRef = useRef(null)
   const { agents, selectedAgentId, connected, reconnect } = useAgent()
 
-  const handleSelectSession = (session) => {
-    if (activeSession?.id === session.id) return
+  const agentForSession = useCallback((session) => {
+    if (!session?.agentId) return null
+    return agents.find((agent) => agent.id === session.agentId) || null
+  }, [agents])
+
+  const ensureSessionAgent = useCallback(async (session) => {
+    const agent = agentForSession(session)
+    if (!agent) return
+    if (agent.id !== selectedAgentId || !connected) {
+      await reconnect(agent)
+    }
+  }, [agentForSession, connected, reconnect, selectedAgentId])
+
+  const handleSelectSession = async (session) => {
+    if (sessionKey(activeSession) === sessionKey(session)) return
+    await ensureSessionAgent(session)
     setActiveSession(session)
     setShouldLoad(true)
   }
@@ -311,14 +329,14 @@ export default function Chat() {
     setShouldLoad(false)
   }, [])
 
-  const handleSessionClosed = useCallback((sessionId) => {
-    if (activeSession?.id === sessionId) {
+  const handleSessionClosed = useCallback((closedKey) => {
+    if (sessionKey(activeSession) === closedKey) {
       setActiveSession(null)
     }
   }, [activeSession])
 
-  const handleSessionDeleted = useCallback((sessionId) => {
-    if (activeSession?.id === sessionId) {
+  const handleSessionDeleted = useCallback((deletedKey) => {
+    if (sessionKey(activeSession) === deletedKey) {
       setActiveSession(null)
     }
   }, [activeSession])
@@ -326,20 +344,21 @@ export default function Chat() {
   const handleBeforeCreateSession = useCallback(async (agent) => {
     if (!agent) throw new Error('No enabled agent configured')
     await reconnect(agent)
+    return agent
   }, [reconnect])
 
   return (
     <div className="flex h-full min-h-0 min-w-0 w-full overflow-hidden">
       <div className="w-64 shrink-0 border-r">
         <SessionList
-          activeSessionId={activeSession?.id}
+          activeSessionId={sessionKey(activeSession)}
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
           onRefresh={refreshRef}
-          connected={connected}
           agents={agents}
           currentAgentId={selectedAgentId}
           onBeforeCreateSession={handleBeforeCreateSession}
+          onBeforeSessionAction={ensureSessionAgent}
           onSessionClosed={handleSessionClosed}
           onSessionDeleted={handleSessionDeleted}
         />
@@ -353,7 +372,7 @@ export default function Chat() {
           </div>
         ) : activeSession ? (
           <ChatWindow
-            key={activeSession.id}
+            key={sessionKey(activeSession)}
             sessionId={activeSession.id}
             session={activeSession}
             shouldLoad={shouldLoad}

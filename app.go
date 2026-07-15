@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 
 	"wails-app/internal/agent"
 	channelservice "wails-app/internal/channels"
 	miyaconfig "wails-app/internal/config"
+
+	"github.com/lsongdev/miya-agents/acp"
 )
 
 // App struct
@@ -86,6 +90,49 @@ func (a *App) ListSessions() ([]agent.Session, error) {
 	return a.manager.ListSessions()
 }
 
+func (a *App) ListAgentSessions() ([]agent.Session, error) {
+	cfg, err := a.config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	var sessions []agent.Session
+	for _, endpoint := range cfg.Agents {
+		if !endpoint.IsEnabled() {
+			continue
+		}
+		if endpoint.Type != "" && endpoint.Type != "stdio" {
+			continue
+		}
+		if strings.TrimSpace(endpoint.Command) == "" {
+			continue
+		}
+
+		client, err := acp.DialStdio(endpoint.Command, endpoint.Args...)
+		if err != nil {
+			log.Printf("[agent] ListAgentSessions dial %s: %v", endpoint.ID, err)
+			continue
+		}
+		list, err := listSessionsForClient(client)
+		client.Close()
+		if err != nil {
+			log.Printf("[agent] ListAgentSessions list %s: %v", endpoint.ID, err)
+			continue
+		}
+		for _, session := range list {
+			session.AgentID = endpoint.ID
+			session.AgentName = endpoint.Name
+			if session.AgentName == "" {
+				session.AgentName = endpoint.ID
+			}
+			session.AgentCommand = commandString(endpoint)
+			session.Key = session.AgentID + ":" + session.ID
+			sessions = append(sessions, session)
+		}
+	}
+	return sessions, nil
+}
+
 func (a *App) CloseSession(sessionID string) error {
 	return a.manager.CloseSession(sessionID)
 }
@@ -128,4 +175,44 @@ func (a *App) StartChannelsService() (channelservice.Status, error) {
 
 func (a *App) StopChannelsService() (channelservice.Status, error) {
 	return a.channels.Stop()
+}
+
+func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {
+	_, err := client.Initialize(&acp.InitializeRequest{
+		ProtocolVersion:    1,
+		ClientCapabilities: acp.DefaultClientCapabilities(),
+		ClientInfo:         &acp.Implementation{Name: "miya-desktop", Version: "0.1.0"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialize: %w", err)
+	}
+	if err := client.SendNotification("notifications/initialized", struct{}{}); err != nil {
+		return nil, fmt.Errorf("initialized notification: %w", err)
+	}
+	resp, err := client.ListSessions(&acp.ListSessionsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	sessions := make([]agent.Session, 0, len(resp.Sessions))
+	for _, s := range resp.Sessions {
+		session := agent.Session{
+			ID:  string(s.SessionID),
+			Cwd: s.Cwd,
+		}
+		if s.Title != nil {
+			session.Title = *s.Title
+		}
+		if s.UpdatedAt != nil {
+			session.UpdatedAt = *s.UpdatedAt
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, nil
+}
+
+func commandString(endpoint miyaconfig.ACPAgentConfig) string {
+	if endpoint.Command == "" {
+		return ""
+	}
+	return strings.Join(append([]string{endpoint.Command}, endpoint.Args...), " ")
 }

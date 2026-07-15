@@ -27,6 +27,8 @@ export function Greet(arg1:string):Promise<string>;
 
 export function InitializeAgent(arg1:string,arg2:string):Promise<agent.AgentInfo>;
 
+export function ListAgentSessions():Promise<Array<agent.Session>>;
+
 export function ListSessions():Promise<Array<agent.Session>>;
 
 export function LoadMiyaConfig():Promise<config.Config>;

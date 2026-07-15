@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import {
   CreateSession,
   DefaultCwd,
-  ListSessions,
+  ListAgentSessions,
   CloseSession,
   DeleteSession,
 } from '../../wailsjs/go/main/App'
@@ -16,7 +16,30 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, connected, agents = [], currentAgentId, onBeforeCreateSession, onSessionClosed, onSessionDeleted }) {
+function sessionKey(session) {
+  return session?.key || session?.id || ''
+}
+
+function groupSessions(sessions) {
+  const groups = []
+  const byAgent = new Map()
+  for (const session of sessions) {
+    const agentId = session.agentId || 'unknown'
+    if (!byAgent.has(agentId)) {
+      const group = {
+        id: agentId,
+        name: session.agentName || agentId,
+        sessions: [],
+      }
+      byAgent.set(agentId, group)
+      groups.push(group)
+    }
+    byAgent.get(agentId).sessions.push(session)
+  }
+  return groups
+}
+
+export default function SessionList({ activeSessionId, onSelectSession, onNewSession: onNewSessionProp, onRefresh, refreshKey, agents = [], currentAgentId, onBeforeCreateSession, onBeforeSessionAction, onSessionClosed, onSessionDeleted }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -26,7 +49,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const fetchSessions = useCallback(async () => {
     try {
       setLoading(true)
-      const list = await ListSessions()
+      const list = await ListAgentSessions()
       setSessions(list || [])
     } catch (err) {
       console.error('Failed to list sessions:', err)
@@ -36,12 +59,12 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   }, [])
 
   useEffect(() => {
-    if (connected) {
+    if (agents.length > 0) {
       fetchSessions()
     } else {
       setSessions([])
     }
-  }, [connected, fetchSessions, refreshKey])
+  }, [agents, fetchSessions, refreshKey])
 
   useEffect(() => {
     if (onRefresh) onRefresh.current = fetchSessions
@@ -52,11 +75,18 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     setActionError(null)
     setMenuOpen(false)
     try {
-      await onBeforeCreateSession?.(agent)
+      const targetAgent = await onBeforeCreateSession?.(agent) || agent
       const cwd = await DefaultCwd()
       const session = await CreateSession(cwd)
+      const enrichedSession = targetAgent ? {
+        ...session,
+        agentId: targetAgent.id,
+        agentName: targetAgent.name || targetAgent.id,
+        agentCommand: targetAgent.command,
+        key: `${targetAgent.id}:${session.id}`,
+      } : session
       await fetchSessions()
-      ;(onNewSessionProp || onSelectSession)(session)
+      ;(onNewSessionProp || onSelectSession)(enrichedSession)
     } catch (err) {
       console.error('Create session error:', err)
       setActionError(`Create failed: ${err?.toString() || err}`)
@@ -65,29 +95,42 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     }
   }
 
-  const handleClose = async (sessionId, e) => {
+  const handleSelect = async (session) => {
+    setActionError(null)
+    try {
+      await onSelectSession(session)
+    } catch (err) {
+      console.error('Select session error:', err)
+      setActionError(`Select failed: ${err?.toString() || err}`)
+    }
+  }
+
+  const handleClose = async (session, e) => {
     e.stopPropagation()
     setActionError(null)
     try {
-      await CloseSession(sessionId)
+      await onBeforeSessionAction?.(session)
+      await CloseSession(session.id)
       await fetchSessions()
-      onSessionClosed?.(sessionId)
+      onSessionClosed?.(sessionKey(session))
     } catch (err) {
       console.error('Close session error:', err)
       setActionError(`Close failed: ${err?.toString() || err}`)
     }
   }
 
-  const handleDelete = async (sessionId, e) => {
+  const handleDelete = async (session, e) => {
     e.stopPropagation()
     setActionError(null)
+    const key = sessionKey(session)
     // Optimistic removal so the row disappears immediately; if the agent
     // rejects the delete we restore the list and surface the error.
     const snapshot = sessions
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+    setSessions((prev) => prev.filter((s) => sessionKey(s) !== key))
     try {
-      await DeleteSession(sessionId)
-      onSessionDeleted?.(sessionId)
+      await onBeforeSessionAction?.(session)
+      await DeleteSession(session.id)
+      onSessionDeleted?.(key)
       // Refresh from server so title/updatedAt on remaining rows stays fresh.
       fetchSessions()
     } catch (err) {
@@ -96,6 +139,8 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       setActionError(`Delete failed: ${err?.toString() || err}`)
     }
   }
+
+  const groups = groupSessions(sessions)
 
   return (
     <div className="flex flex-col h-full border-r bg-card">
@@ -152,9 +197,9 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
         </div>
       )}
       <div className="flex-1 overflow-y-auto">
-        {!connected ? (
+        {agents.length === 0 ? (
           <div className="py-8 px-3 text-center text-xs text-muted-foreground">
-            Create a session to connect an agent
+            Enable an agent in Settings
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-8">
@@ -166,41 +211,51 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
           </div>
         ) : (
           <div className="divide-y">
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                onClick={() => onSelectSession(session)}
-                className={`group flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 text-sm ${
-                  activeSessionId === session.id ? 'bg-muted' : ''
-                }`}
-              >
-                <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-xs font-medium">
-                    {session.title || `Session ${session.id.slice(0, 8)}...`}
-                  </p>
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {session.id.slice(0, 16)}...
-                  </p>
+            {groups.map((group) => (
+              <div key={group.id}>
+                <div className="sticky top-0 z-10 border-b bg-card/95 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {group.name}
                 </div>
-                <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={(e) => handleClose(session.id, e)}
-                    title="Close"
-                  >
-                    <X className="size-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={(e) => handleDelete(session.id, e)}
-                    title="Delete"
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
+                {group.sessions.map((session) => {
+                  const key = sessionKey(session)
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => handleSelect(session)}
+                      className={`group flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 text-sm ${
+                        activeSessionId === key ? 'bg-muted' : ''
+                      }`}
+                    >
+                      <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-xs font-medium">
+                          {session.title || `Session ${session.id.slice(0, 8)}...`}
+                        </p>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          {session.id.slice(0, 16)}...
+                        </p>
+                      </div>
+                      <div className="flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={(e) => handleClose(session, e)}
+                          title="Close"
+                        >
+                          <X className="size-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={(e) => handleDelete(session, e)}
+                          title="Delete"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             ))}
           </div>

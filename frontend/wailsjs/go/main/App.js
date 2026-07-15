@@ -46,6 +46,10 @@ export function InitializeAgent(arg1, arg2) {
   return window['go']['main']['App']['InitializeAgent'](arg1, arg2);
 }
 
+export function ListAgentSessions() {
+  return window['go']['main']['App']['ListAgentSessions']();
+}
+
 export function ListSessions() {
   return window['go']['main']['App']['ListSessions']();
 }
