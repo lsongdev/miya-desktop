@@ -296,9 +296,13 @@ export namespace agent {
 	}
 	export class Session {
 	    id: string;
+	    key?: string;
 	    cwd: string;
 	    title?: string;
 	    updatedAt?: string;
+	    agentId?: string;
+	    agentName?: string;
+	    agentCommand?: string;
 
 	    static createFrom(source: any = {}) {
 	        return new Session(source);
@@ -307,9 +311,13 @@ export namespace agent {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
+	        this.key = source["key"];
 	        this.cwd = source["cwd"];
 	        this.title = source["title"];
 	        this.updatedAt = source["updatedAt"];
+	        this.agentId = source["agentId"];
+	        this.agentName = source["agentName"];
+	        this.agentCommand = source["agentCommand"];
 	    }
 	}
 

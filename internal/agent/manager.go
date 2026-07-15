@@ -16,10 +16,14 @@ import (
 )
 
 type Session struct {
-	ID        string `json:"id"`
-	Cwd       string `json:"cwd"`
-	Title     string `json:"title,omitempty"`
-	UpdatedAt string `json:"updatedAt,omitempty"`
+	ID           string `json:"id"`
+	Key          string `json:"key,omitempty"`
+	Cwd          string `json:"cwd"`
+	Title        string `json:"title,omitempty"`
+	UpdatedAt    string `json:"updatedAt,omitempty"`
+	AgentID      string `json:"agentId,omitempty"`
+	AgentName    string `json:"agentName,omitempty"`
+	AgentCommand string `json:"agentCommand,omitempty"`
 }
 
 type AgentInfo struct {
