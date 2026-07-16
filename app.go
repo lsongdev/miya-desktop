@@ -148,13 +148,28 @@ func (a *App) InitializeAgent(name, version string) (*agent.AgentInfo, error) {
 }
 
 func (a *App) CreateSession(cwd string) (*agent.Session, error) {
-	return a.manager.NewSession(cwd)
+	return a.manager.NewSession(a.normalizeCwd(cwd))
 }
 
 func (a *App) DefaultCwd() string {
+	return a.ensureDefaultWorkspace()
+}
+
+func (a *App) normalizeCwd(cwd string) string {
+	cwd = strings.TrimSpace(cwd)
+	if cwd != "" {
+		return cwd
+	}
+	return a.ensureDefaultWorkspace()
+}
+
+func (a *App) ensureDefaultWorkspace() string {
 	home, err := os.UserHomeDir()
 	if err == nil && home != "" {
-		return home
+		workspace := filepath.Join(home, ".miya", "workspace")
+		if mkErr := os.MkdirAll(workspace, 0755); mkErr == nil {
+			return workspace
+		}
 	}
 	cwd, err := os.Getwd()
 	if err == nil && cwd != "" {
@@ -164,7 +179,7 @@ func (a *App) DefaultCwd() string {
 }
 
 func (a *App) LoadSession(sessionID, cwd string) error {
-	return a.manager.LoadSession(sessionID, cwd)
+	return a.manager.LoadSession(sessionID, a.normalizeCwd(cwd))
 }
 
 func (a *App) SendPrompt(sessionID, message string) error {
