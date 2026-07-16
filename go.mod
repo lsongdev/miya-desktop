@@ -3,8 +3,8 @@ module wails-app
 go 1.26.1
 
 require (
-	github.com/lsongdev/miya-agents v0.0.0-20260716135451-243af9dcb069
-	github.com/lsongdev/miya-channels v0.0.0-20260716142145-83e93e389d53
+	github.com/lsongdev/miya-agents v0.0.0-20260716164831-c065f6de234e
+	github.com/lsongdev/miya-channels v0.0.0-20260716165005-6e9a2fd023e4
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.102
 )
 

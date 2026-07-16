@@ -663,6 +663,7 @@ function McpSettings() {
       <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={selectClass} autoFocus>
           <option value="stdio">stdio</option>
           <option value="http">http</option>
+          <option value="streamablehttp">streamablehttp</option>
           <option value="sse">sse</option>
       </select>
       {form.type === 'stdio' ? (
@@ -675,7 +676,7 @@ function McpSettings() {
         </>
       ) : (
         <>
-          <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder={`${form.type.toUpperCase()} URL`} className={monoInputClass} />
+          <Input value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} placeholder={`${form.type} URL`} className={monoInputClass} />
           <textarea value={form.headers} onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))} placeholder="Header-Name=value" className={textAreaClass} />
         </>
       )}
