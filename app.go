@@ -242,6 +242,7 @@ func openWithDefaultApp(target string) error {
 	default:
 		cmd = exec.Command("xdg-open", target)
 	}
+	configureCommand(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("open attachment: %w", err)
 	}

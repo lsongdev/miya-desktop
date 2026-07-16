@@ -8,6 +8,8 @@ WAILS3 ?= go tool wails3
 GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
 WINDOWS_LDFLAGS := $(GO_LDFLAGS) -H windowsgui
 WINDOWS_SYSO := wails_windows_amd64.syso
+WINDOWS_INFO := build/windows/info.generated.json
+WINDOWS_MANIFEST := build/windows/wails.generated.exe.manifest
 
 export VITE_APP_VERSION := $(APP_VERSION)
 
@@ -34,9 +36,11 @@ build-macos-arm64:
 build-windows:
 	cd frontend && npm install && npm run build
 	mkdir -p $(BIN_DIR)
-	$(WAILS3) generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out $(WINDOWS_SYSO)
+	node scripts/windows-info.mjs $(WINDOWS_INFO) $(APP_VERSION)
+	node scripts/windows-manifest.mjs $(WINDOWS_MANIFEST) $(APP_VERSION)
+	$(WAILS3) generate syso -arch amd64 -icon build/windows/icon.ico -manifest $(WINDOWS_MANIFEST) -info $(WINDOWS_INFO) -out $(WINDOWS_SYSO)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
-	rm -f $(WINDOWS_SYSO)
+	rm -f $(WINDOWS_SYSO) $(WINDOWS_INFO) $(WINDOWS_MANIFEST)
 
 install:
 	cd frontend && npm install
