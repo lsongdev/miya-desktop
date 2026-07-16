@@ -62,15 +62,16 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
 
-  const fetchSessions = useCallback(async (preserve = []) => {
+  const fetchSessions = useCallback(async (preserve = [], options = {}) => {
+    const silent = options.silent === true
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const list = await ListAgentSessions()
       setSessions(mergeSessions(list || [], preserve))
     } catch (err) {
       console.error('Failed to list sessions:', err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -104,7 +105,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       } : session
       setSessions((prev) => mergeSessions(prev, [enrichedSession]))
       ;(onNewSessionProp || onSelectSession)(enrichedSession)
-      await fetchSessions([enrichedSession])
+      fetchSessions([enrichedSession], { silent: true })
     } catch (err) {
       console.error('Create session error:', err)
       setActionError(`Create failed: ${err?.toString() || err}`)

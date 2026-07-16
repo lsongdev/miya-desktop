@@ -196,8 +196,7 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 			log.Printf("[agent] ListAgentSessions dial %s: %v", endpoint.ID, err)
 			continue
 		}
-		list, err := listSessionsForClient(client)
-		client.Close()
+		list, err := listSessionsForClientWithTimeout(client, 3*time.Second)
 		if err != nil {
 			log.Printf("[agent] ListAgentSessions list %s: %v", endpoint.ID, err)
 			continue
@@ -214,6 +213,27 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 		}
 	}
 	return sessions, nil
+}
+
+func listSessionsForClientWithTimeout(client *acp.Client, timeout time.Duration) ([]agent.Session, error) {
+	type result struct {
+		sessions []agent.Session
+		err      error
+	}
+	done := make(chan result, 1)
+	go func() {
+		sessions, err := listSessionsForClient(client)
+		done <- result{sessions: sessions, err: err}
+	}()
+
+	select {
+	case result := <-done:
+		_ = client.Close()
+		return result.sessions, result.err
+	case <-time.After(timeout):
+		_ = client.Close()
+		return nil, fmt.Errorf("list sessions timeout after %s", timeout)
+	}
 }
 
 func (a *App) CloseSession(sessionID string) error {
