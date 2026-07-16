@@ -267,8 +267,8 @@ github.com/lsongdev/feishu-go v0.0.0-20260319163837-39674c462916 h1:FPAYQCfRcQJZ
 github.com/lsongdev/feishu-go v0.0.0-20260319163837-39674c462916/go.mod h1:Da/IlV+rc5g7zgQLwRBu0iSeDlq1LpP6NKZhb9kAETo=
 github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3 h1:AZVcHb8kfrZSOjzvHJuhZnrJ6AHlO+BCf2SKG2unHcc=
 github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3/go.mod h1:vCfliLQ2i77gJShOzr7mmiwN2a1Px0Jm8scFPsH5JOI=
-github.com/lsongdev/miya-agents v0.0.0-20260716100435-2f47a245718c h1:csv34xr03qOIsTqTQ9tfCLsIoOfXputMtbAqM4rZlDQ=
-github.com/lsongdev/miya-agents v0.0.0-20260716100435-2f47a245718c/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
+github.com/lsongdev/miya-agents v0.0.0-20260716114749-cd2f97b45790 h1:/KaMO8omVHq9VeS3hspoq/NWc2XAF50+E1yYJ/05vZA=
+github.com/lsongdev/miya-agents v0.0.0-20260716114749-cd2f97b45790/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
 github.com/lsongdev/miya-channels v0.0.0-20260716111657-e382d7ac624a h1:M2xAf/NgVgGCpH2t2HRf28deVfT2vNQDfTy+HFn6oKA=
 github.com/lsongdev/miya-channels v0.0.0-20260716111657-e382d7ac624a/go.mod h1:fDro4aTTHfVdINzdjPGPUsfX3F1GzK9RQgGcv5b533Y=
 github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9 h1:zq0rUkLB0Q2rf3ndw2HngNaupfS+Ev+Vgi5WWgeOIL8=
