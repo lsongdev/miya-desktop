@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { CancelSession, DefaultCwd, GetConversation, SendPrompt, LoadSession, OpenAttachment } from '../../bindings/wails-app/app'
+import { CancelSession, DefaultCwd, GetConversation, SendPrompt, LoadSession, OpenAttachment, ReadAttachment } from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
 import {
   Send,
@@ -93,7 +93,7 @@ function fileSizeLabel(size) {
 
 function blockURL(block) {
   if (block.data) return `data:${block.mime || 'application/octet-stream'};base64,${block.data}`
-  if (block.uri) return block.uri
+  if (block.uri && /^https?:\/\//i.test(block.uri)) return block.uri
   return null
 }
 
@@ -126,6 +126,38 @@ async function openAttachment(block) {
   } catch (err) {
     console.error('Failed to open attachment', err)
   }
+}
+
+function ImageDisplay({ block }) {
+  const initialSrc = blockURL(block)
+  const [src, setSrc] = useState(initialSrc)
+
+  useEffect(() => {
+    let cancelled = false
+    setSrc(initialSrc)
+    if (initialSrc || !block.uri || !/^file:\/\//i.test(block.uri)) return
+
+    ReadAttachment(block.uri, 20 * 1024 * 1024)
+      .then((attachment) => {
+        if (!cancelled && attachment?.data) {
+          setSrc(`data:${attachment.mimeType || block.mime || 'application/octet-stream'};base64,${attachment.data}`)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to read image attachment', err)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [block.uri, block.mime, initialSrc])
+
+  if (!src) return <ResourceDisplay block={block} />
+  return (
+    <button type="button" onClick={() => openAttachment(block)} className="my-1 block">
+      <img src={src} alt={block.name || ''} className="max-w-[280px] rounded-md border" />
+    </button>
+  )
 }
 
 function VideoDisplay({ block }) {
@@ -184,8 +216,7 @@ function MessageBlock({ block, role, streaming }) {
   if (block.type === 'tool_call') return <ToolCallDisplay tool={block.tool} />
   if (block.type === 'plan') return <PlanDisplay plan={block.plan} />
   if (block.type === 'image') {
-    const src = blockURL(block)
-    return src ? <img src={src} alt="" className="max-w-[280px] rounded-md border" /> : null
+    return <ImageDisplay block={block} />
   }
   if (block.type === 'audio') {
     const src = blockURL(block)

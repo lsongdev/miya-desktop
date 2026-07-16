@@ -141,6 +141,12 @@ export function OpenAttachment(target: string): $CancellablePromise<void> {
     return $Call.ByID(2242222340, target);
 }
 
+export function ReadAttachment(target: string, maxBytes: number): $CancellablePromise<$models.AttachmentData | null> {
+    return $Call.ByID(4083110208, target, maxBytes).then(($result: any) => {
+        return $$createType14($result);
+    });
+}
+
 export function ReconnectAgent(): $CancellablePromise<void> {
     return $Call.ByID(4116464635);
 }
@@ -187,3 +193,5 @@ const $$createType9 = $Create.Array($$createType1);
 const $$createType10 = $Create.Array($$createType8);
 const $$createType11 = config$1.Config.createFrom;
 const $$createType12 = $Create.Nullable($$createType11);
+const $$createType13 = $models.AttachmentData.createFrom;
+const $$createType14 = $Create.Nullable($$createType13);

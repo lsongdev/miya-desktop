@@ -7,5 +7,6 @@ export {
 };
 
 export {
+    AttachmentData,
     SkillInfo
 } from "./models.js";

@@ -5,6 +5,39 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class AttachmentData {
+    "name": string;
+    "mimeType": string;
+    "size": number;
+    "data": string;
+
+    /** Creates a new AttachmentData instance. */
+    constructor($$source: Partial<AttachmentData> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("mimeType" in $$source)) {
+            this["mimeType"] = "";
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("data" in $$source)) {
+            this["data"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AttachmentData instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AttachmentData {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AttachmentData($$parsedSource as Partial<AttachmentData>);
+    }
+}
+
 export class SkillInfo {
     "name": string;
     "description"?: string;

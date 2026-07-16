@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -48,6 +50,13 @@ type SkillInfo struct {
 	Description string `json:"description,omitempty"`
 	Path        string `json:"path"`
 	Prompt      string `json:"prompt,omitempty"`
+}
+
+type AttachmentData struct {
+	Name     string `json:"name"`
+	MimeType string `json:"mimeType"`
+	Size     int64  `json:"size"`
+	Data     string `json:"data"`
 }
 
 func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
@@ -149,6 +158,55 @@ func (a *App) OpenAttachment(target string) error {
 	default:
 		return fmt.Errorf("attachment scheme %q is not supported", parsed.Scheme)
 	}
+}
+
+func (a *App) ReadAttachment(target string, maxBytes int64) (*AttachmentData, error) {
+	if maxBytes <= 0 {
+		maxBytes = 20 * 1024 * 1024
+	}
+	path, err := attachmentFilePath(target)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("attachment file is not accessible: %w", err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("attachment is a directory")
+	}
+	if info.Size() > maxBytes {
+		return nil, fmt.Errorf("attachment is too large to preview")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read attachment: %w", err)
+	}
+	mimeType := mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
+	if mimeType == "" {
+		mimeType = http.DetectContentType(data)
+	}
+	return &AttachmentData{
+		Name:     filepath.Base(path),
+		MimeType: mimeType,
+		Size:     info.Size(),
+		Data:     base64.StdEncoding.EncodeToString(data),
+	}, nil
+}
+
+func attachmentFilePath(target string) (string, error) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return "", fmt.Errorf("attachment target is required")
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return "", fmt.Errorf("invalid attachment target: %w", err)
+	}
+	if strings.ToLower(parsed.Scheme) != "file" {
+		return "", fmt.Errorf("attachment scheme %q is not readable", parsed.Scheme)
+	}
+	return fileURLPath(parsed)
 }
 
 func fileURLPath(u *url.URL) (string, error) {
