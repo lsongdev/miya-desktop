@@ -6,6 +6,7 @@ MAC_PLIST = $(MAC_APP)/Contents/Info.plist
 MAC_GOENV ?=
 GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
 WINDOWS_LDFLAGS := $(GO_LDFLAGS) -H windowsgui
+WINDOWS_SYSO := wails_windows_amd64.syso
 
 export VITE_APP_VERSION := $(APP_VERSION)
 
@@ -32,7 +33,9 @@ build-macos-arm64:
 build-windows:
 	cd frontend && npm install && npm run build
 	mkdir -p $(BIN_DIR)
+	wails3 generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out $(WINDOWS_SYSO)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
+	rm -f $(WINDOWS_SYSO)
 
 install:
 	cd frontend && npm install
