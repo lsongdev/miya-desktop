@@ -375,7 +375,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const messages = conversation?.messages || []
   const usage = usageLabel(conversation?.usage)
   const mode = conversation?.mode?.currentModeId
-  const cwd = conversation?.cwd || session?.cwd
+  const model = conversation?.model
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
@@ -428,9 +428,9 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
         <p className="text-xs text-destructive text-center mb-2">{error}</p>
       )}
 
-      {(cwd || usage || mode) && (
-        <div className="mb-2 flex min-w-0 items-center gap-3 text-[11px] text-muted-foreground">
-          {cwd && <span className="min-w-0 flex-1 truncate font-mono">{cwd}</span>}
+      {(model || usage || mode) && (
+        <div className="mb-2 flex min-w-0 items-center justify-end gap-3 text-[11px] text-muted-foreground">
+          {model && <span className="min-w-0 truncate">Model: {model}</span>}
           {mode && <span className="shrink-0">Mode: {mode}</span>}
           {usage && <span className="shrink-0">Context: {usage}</span>}
         </div>

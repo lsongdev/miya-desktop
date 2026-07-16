@@ -73,6 +73,37 @@ func (m *Manager) currentAgentID() string {
 	return m.endpoint.ID
 }
 
+func (m *Manager) currentModel() string {
+	if m.loadConfig == nil {
+		return ""
+	}
+	cfg, err := m.loadConfig()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	if profile := cfg.Profiles["default"]; profile != nil {
+		return strings.TrimSpace(profile.ModelName)
+	}
+	if len(cfg.Profiles) == 1 {
+		for _, profile := range cfg.Profiles {
+			if profile != nil {
+				return strings.TrimSpace(profile.ModelName)
+			}
+		}
+	}
+	return ""
+}
+
+func (m *Manager) annotateModel(conversationID string) {
+	model := m.currentModel()
+	if model == "" {
+		return
+	}
+	if snapshot, ok := m.store.SetModel(conversationID, model); ok {
+		m.emitEvent("conversation:update", snapshot)
+	}
+}
+
 func (m *Manager) scopedSessionID(sessionID string) string {
 	agentID := m.currentAgentID()
 	if agentID == "" || strings.Contains(sessionID, ":") {
@@ -162,6 +193,7 @@ func (m *Manager) handleNotification(method string, params json.RawMessage) {
 		}
 		conversationID := m.scopedSessionID(envelope.SessionID)
 		m.store.RegisterSessionWithACP(conversationID, envelope.SessionID, "")
+		m.annotateModel(conversationID)
 		snapshot := m.store.ApplyACPEvent(conversationID, event)
 		m.emitEvent("session:update", map[string]any{
 			"sessionId": conversationID,
@@ -330,6 +362,7 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 		}
 		snapshot := m.store.ResetSessionWithACP(conversationID, acpSessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
+		m.annotateModel(conversationID)
 		_, err := client.LoadSession(&acp.LoadSessionRequest{
 			SessionID:  acp.SessionID(acpSessionID),
 			Cwd:        cwd,
@@ -367,6 +400,7 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 		}
 		snapshot := m.store.RegisterSessionWithACP(conversationID, sessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
+		m.annotateModel(conversationID)
 		return nil
 	})
 	return session, err
@@ -376,6 +410,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 	conversationID, acpSessionID := m.splitSessionRef(sessionID)
 	log.Printf("[agent] Prompt: session=%q acp=%q message=%q", conversationID, acpSessionID, message)
 	m.store.RegisterSessionWithACP(conversationID, acpSessionID, "")
+	m.annotateModel(conversationID)
 	snapshot := m.store.AddLocalUserMessage(conversationID, message)
 	m.emitEvent("conversation:update", snapshot)
 

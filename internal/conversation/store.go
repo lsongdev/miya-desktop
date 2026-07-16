@@ -43,6 +43,21 @@ func (s *Store) RegisterSessionWithACP(conversationID, acpSessionID, cwd string)
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_registered"}
 }
 
+func (s *Store) SetModel(sessionID, model string) (Snapshot, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	conv, ok := s.conversations[sessionID]
+	if !ok {
+		return Snapshot{}, false
+	}
+	if model != "" {
+		conv.Model = model
+		conv.UpdatedAt = s.nowString()
+	}
+	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_model"}, true
+}
+
 func (s *Store) ResetSessionWithACP(conversationID, acpSessionID, cwd string) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()

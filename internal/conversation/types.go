@@ -31,6 +31,7 @@ type Conversation struct {
 	RuntimeID    string                 `json:"runtimeId,omitempty"`
 	Title        string                 `json:"title,omitempty"`
 	Cwd          string                 `json:"cwd,omitempty"`
+	Model        string                 `json:"model,omitempty"`
 	Source       Source                 `json:"source"`
 	Messages     []Message              `json:"messages"`
 	Usage        *acp.UsageUpdate       `json:"usage,omitempty"`

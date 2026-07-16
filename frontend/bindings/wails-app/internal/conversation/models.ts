@@ -60,6 +60,7 @@ export class Conversation {
     "runtimeId"?: string;
     "title"?: string;
     "cwd"?: string;
+    "model"?: string;
     "source": Source;
     "messages": Message[];
     "usage"?: acp$0.UsageUpdate | null;
@@ -95,22 +96,22 @@ export class Conversation {
      * Creates a new Conversation instance from a string or object.
      */
     static createFrom($$source: any = {}): Conversation {
-        const $$createField5_0 = $$createType4;
-        const $$createField6_0 = $$createType6;
-        const $$createField7_0 = $$createType8;
-        const $$createField8_0 = $$createType10;
+        const $$createField6_0 = $$createType4;
+        const $$createField7_0 = $$createType6;
+        const $$createField8_0 = $$createType8;
+        const $$createField9_0 = $$createType10;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("source" in $$parsedSource) {
-            $$parsedSource["source"] = $$createField5_0($$parsedSource["source"]);
+            $$parsedSource["source"] = $$createField6_0($$parsedSource["source"]);
         }
         if ("messages" in $$parsedSource) {
-            $$parsedSource["messages"] = $$createField6_0($$parsedSource["messages"]);
+            $$parsedSource["messages"] = $$createField7_0($$parsedSource["messages"]);
         }
         if ("usage" in $$parsedSource) {
-            $$parsedSource["usage"] = $$createField7_0($$parsedSource["usage"]);
+            $$parsedSource["usage"] = $$createField8_0($$parsedSource["usage"]);
         }
         if ("mode" in $$parsedSource) {
-            $$parsedSource["mode"] = $$createField8_0($$parsedSource["mode"]);
+            $$parsedSource["mode"] = $$createField9_0($$parsedSource["mode"]);
         }
         return new Conversation($$parsedSource as Partial<Conversation>);
     }
