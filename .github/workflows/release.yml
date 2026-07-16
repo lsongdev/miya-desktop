@@ -38,26 +38,11 @@ jobs:
         with:
           path: miya-desktop
 
-      - name: Checkout agents
-        uses: actions/checkout@v4
-        with:
-          repository: lsongdev/miya-agents
-          path: miya-agents
-
-      - name: Checkout channels
-        uses: actions/checkout@v4
-        with:
-          repository: lsongdev/miya-channels
-          path: miya-channels
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: miya-desktop/go.mod
-          cache-dependency-path: |
-            miya-desktop/go.sum
-            miya-agents/go.sum
-            miya-channels/go.sum
+          cache-dependency-path: miya-desktop/go.sum
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -95,26 +80,11 @@ jobs:
         with:
           path: miya-desktop
 
-      - name: Checkout agents
-        uses: actions/checkout@v4
-        with:
-          repository: lsongdev/miya-agents
-          path: miya-agents
-
-      - name: Checkout channels
-        uses: actions/checkout@v4
-        with:
-          repository: lsongdev/miya-channels
-          path: miya-channels
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: miya-desktop/go.mod
-          cache-dependency-path: |
-            miya-desktop/go.sum
-            miya-agents/go.sum
-            miya-channels/go.sum
+          cache-dependency-path: miya-desktop/go.sum
 
       - name: Set up Node
         uses: actions/setup-node@v4

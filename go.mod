@@ -3,8 +3,8 @@ module wails-app
 go 1.26.1
 
 require (
-	github.com/lsongdev/miya-agents v0.0.0-20260612032442-0e7c5fff6788
-	github.com/lsongdev/miya-channels v0.0.0
+	github.com/lsongdev/miya-agents v0.0.0-20260716100435-2f47a245718c
+	github.com/lsongdev/miya-channels v0.0.0-20260716111657-e382d7ac624a
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.102
 )
 
@@ -157,9 +157,5 @@ require (
 	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	mvdan.cc/sh/v3 v3.12.0 // indirect
 )
-
-replace github.com/lsongdev/miya-agents => ../miya-agents
-
-replace github.com/lsongdev/miya-channels => ../miya-channels
 
 tool github.com/wailsapp/wails/v3/cmd/wails3
