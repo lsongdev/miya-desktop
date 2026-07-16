@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { CancelSession, DefaultCwd, GetConversation, SendPrompt, LoadSession } from '../../bindings/wails-app/app'
+import { CancelSession, DefaultCwd, GetConversation, SendPrompt, LoadSession, OpenAttachment } from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
 import {
   Send,
@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   FileText,
   ExternalLink,
+  Film,
 } from 'lucide-react'
 
 const StopReasonLabels = {
@@ -96,18 +97,76 @@ function blockURL(block) {
   return null
 }
 
-function ResourceDisplay({ block }) {
-  const href = blockURL(block)
-  const name = block.name || block.content || 'Attached file'
+function canOpenExternally(block) {
+  return Boolean(block.uri && /^(file|https?):\/\//i.test(block.uri))
+}
+
+function canOpenInline(block) {
+  return Boolean(block.data)
+}
+
+async function openAttachment(block) {
+  if (canOpenInline(block)) {
+    const binary = atob(block.data)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    const blob = new Blob([bytes], { type: block.mime || 'application/octet-stream' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = block.name || 'attachment'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return
+  }
+  if (!canOpenExternally(block)) return
+  try {
+    await OpenAttachment(block.uri)
+  } catch (err) {
+    console.error('Failed to open attachment', err)
+  }
+}
+
+function VideoDisplay({ block }) {
+  const src = blockURL(block)
+  const name = block.name || 'Video'
   const meta = [block.mime, fileSizeLabel(block.size)].filter(Boolean).join(' · ')
 
+  if (!src) return <ResourceDisplay block={block} />
   return (
-    <a
-      href={href || undefined}
-      target="_blank"
-      rel="noreferrer"
+    <div className="my-1 max-w-[420px] space-y-2">
+      <video src={src} controls className="max-h-[320px] w-full rounded-md border bg-black" />
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Film className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{name}{meta ? ` · ${meta}` : ''}</span>
+        {canOpenExternally(block) && (
+          <button
+            type="button"
+            onClick={() => openAttachment(block)}
+            className="inline-flex shrink-0 items-center gap-1 rounded border px-2 py-1 text-foreground hover:bg-muted"
+          >
+            <ExternalLink className="size-3" />
+            Open
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ResourceDisplay({ block }) {
+  const name = block.name || block.content || 'Attached file'
+  const meta = [block.mime, fileSizeLabel(block.size)].filter(Boolean).join(' · ')
+  const openable = canOpenInline(block) || canOpenExternally(block)
+
+  return (
+    <button
+      type="button"
+      onClick={() => openAttachment(block)}
+      disabled={!openable}
       className={`my-1 flex max-w-[320px] items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-foreground ${
-        href ? 'hover:bg-muted/50' : 'pointer-events-none opacity-70'
+        openable ? 'hover:bg-muted/50' : 'cursor-default opacity-70'
       }`}
     >
       <FileText className="size-4 shrink-0 text-muted-foreground" />
@@ -115,8 +174,8 @@ function ResourceDisplay({ block }) {
         <span className="block truncate font-medium">{name}</span>
         {meta && <span className="block truncate text-xs text-muted-foreground">{meta}</span>}
       </span>
-      {href && <ExternalLink className="size-3 shrink-0 text-muted-foreground" />}
-    </a>
+      {openable && <ExternalLink className="size-3 shrink-0 text-muted-foreground" />}
+    </button>
   )
 }
 
@@ -132,6 +191,7 @@ function MessageBlock({ block, role, streaming }) {
     const src = blockURL(block)
     return src ? <audio src={src} controls className="max-w-full" /> : null
   }
+  if (block.mime?.startsWith('video/')) return <VideoDisplay block={block} />
   if (block.type === 'resource') return <ResourceDisplay block={block} />
 
   return (

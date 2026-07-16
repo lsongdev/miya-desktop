@@ -137,6 +137,10 @@ export function MiyaConfigPath(): $CancellablePromise<string> {
     return $Call.ByID(1892314592);
 }
 
+export function OpenAttachment(target: string): $CancellablePromise<void> {
+    return $Call.ByID(2242222340, target);
+}
+
 export function ReconnectAgent(): $CancellablePromise<void> {
     return $Call.ByID(4116464635);
 }

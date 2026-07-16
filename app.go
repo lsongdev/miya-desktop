@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -115,6 +118,76 @@ func channelsEnabled(cfg *miyaconfig.Config) bool {
 // Greet returns a greeting for the given name
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+func (a *App) OpenAttachment(target string) error {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return fmt.Errorf("attachment target is required")
+	}
+
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return fmt.Errorf("invalid attachment target: %w", err)
+	}
+
+	switch strings.ToLower(parsed.Scheme) {
+	case "file":
+		path, err := fileURLPath(parsed)
+		if err != nil {
+			return err
+		}
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("attachment file is not accessible: %w", err)
+		}
+		return openWithDefaultApp(path)
+	case "http", "https":
+		if parsed.Host == "" {
+			return fmt.Errorf("attachment URL is missing host")
+		}
+		return openWithDefaultApp(parsed.String())
+	default:
+		return fmt.Errorf("attachment scheme %q is not supported", parsed.Scheme)
+	}
+}
+
+func fileURLPath(u *url.URL) (string, error) {
+	path, err := url.PathUnescape(u.Path)
+	if err != nil {
+		return "", fmt.Errorf("invalid file URL path: %w", err)
+	}
+	if runtime.GOOS == "windows" {
+		if u.Host != "" {
+			path = `\\` + u.Host + filepath.FromSlash(path)
+		} else {
+			if len(path) >= 3 && path[0] == '/' && path[2] == ':' {
+				path = path[1:]
+			}
+			path = filepath.FromSlash(path)
+		}
+	} else if u.Host != "" && u.Host != "localhost" {
+		return "", fmt.Errorf("file URL host %q is not supported", u.Host)
+	}
+	if path == "" {
+		return "", fmt.Errorf("file URL path is empty")
+	}
+	return path, nil
+}
+
+func openWithDefaultApp(target string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", target)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
+	default:
+		cmd = exec.Command("xdg-open", target)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("open attachment: %w", err)
+	}
+	return nil
 }
 
 func (a *App) ConnectAgent(command string) error {
