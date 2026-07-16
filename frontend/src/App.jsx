@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,7 @@ import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
 import { MiyaConfigProvider } from './context/MiyaConfigContext';
 import { NavigationContext } from './hooks/useNavigate';
+import useDesktopNotifications from './hooks/useDesktopNotifications';
 import miyaIcon from './assets/images/miya-icon.png'
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
@@ -84,10 +85,11 @@ export default function App() {
   const [activePage, setActivePage] = useState('chat');
   const [navParams, setNavParams] = useState({});
   const ActivePage = pageComponents[activePage];
-  const navigate = (page, params = {}) => {
+  const navigate = useCallback((page, params = {}) => {
     setActivePage(page)
     setNavParams(params)
-  }
+  }, [])
+  useDesktopNotifications(navigate)
 
   return (
     <ThemeProvider>

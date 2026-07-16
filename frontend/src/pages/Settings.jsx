@@ -10,6 +10,10 @@ import {
 import { Events } from '@wailsio/runtime'
 import { NavigationContext } from '../hooks/useNavigate'
 import {
+  desktopNotificationsEnabled,
+  setDesktopNotificationsEnabled,
+} from '../hooks/useDesktopNotifications'
+import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info, BookOpen,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
 } from 'lucide-react'
@@ -169,6 +173,12 @@ function GitHubMark({ className = 'size-4' }) {
 
 function GeneralSettings() {
   const { theme, toggleTheme } = useTheme()
+  const [notificationsEnabled, setNotificationsEnabled] = useState(desktopNotificationsEnabled())
+
+  const toggleNotifications = (enabled) => {
+    setNotificationsEnabled(enabled)
+    setDesktopNotificationsEnabled(enabled)
+  }
 
   return (
     <div className="space-y-4">
@@ -182,6 +192,15 @@ function GeneralSettings() {
           <Button variant="outline" size="icon" onClick={toggleTheme}>
             {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
           </Button>
+        </div>
+      </div>
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Desktop notifications</p>
+            <p className="text-sm text-muted-foreground">Notify when an agent finishes responding while Miya is in the background.</p>
+          </div>
+          <Switch checked={notificationsEnabled} onChange={toggleNotifications} label="Desktop notifications" />
         </div>
       </div>
     </div>
