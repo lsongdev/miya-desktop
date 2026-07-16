@@ -174,11 +174,25 @@ function GitHubMark({ className = 'size-4' }) {
 
 function GeneralSettings() {
   const { theme, toggleTheme } = useTheme()
+  const { config, saveConfig, saving } = useMiyaConfig()
   const [notificationsEnabled, setNotificationsEnabled] = useState(desktopNotificationsEnabled())
+  const logging = config.logging || {}
+  const logLevel = logging.level || 'info'
 
   const toggleNotifications = (enabled) => {
     setNotificationsEnabled(enabled)
     setDesktopNotificationsEnabled(enabled)
+  }
+
+  const updateLogLevel = async (level) => {
+    await saveConfig((current) => ({
+      ...current,
+      logging: {
+        ...(current.logging || {}),
+        enabled: true,
+        level,
+      },
+    }))
   }
 
   return (
@@ -202,6 +216,25 @@ function GeneralSettings() {
             <p className="text-sm text-muted-foreground">Notify when an agent finishes responding while Miya is in the background.</p>
           </div>
           <Switch checked={notificationsEnabled} onChange={toggleNotifications} label="Desktop notifications" />
+        </div>
+      </div>
+      <div className="rounded-lg border bg-card p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Log level</p>
+            <p className="text-sm text-muted-foreground">Logs are written to ~/.miya/logs.</p>
+          </div>
+          <select
+            value={logLevel}
+            onChange={(event) => updateLogLevel(event.target.value)}
+            disabled={saving}
+            className={selectClass}
+          >
+            <option value="debug">debug</option>
+            <option value="info">info</option>
+            <option value="warn">warn</option>
+            <option value="error">error</option>
+          </select>
         </div>
       </div>
     </div>

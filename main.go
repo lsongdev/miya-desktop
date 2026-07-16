@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/lsongdev/miya-agents/logging"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
@@ -22,6 +23,10 @@ var appIcon []byte
 var appVersion = "dev"
 
 func main() {
+	if err := logging.SetupFromDefaultConfig("miya-desktop"); err != nil {
+		log.Printf("[WARN] logging setup failed: %v", err)
+	}
+
 	var wailsApp *application.App
 	appService := NewApp(func(name string, data ...any) {
 		if wailsApp != nil {
