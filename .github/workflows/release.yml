@@ -3,6 +3,7 @@ name: Build
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,11 +13,15 @@ jobs:
     name: Prepare
     runs-on: ubuntu-latest
     outputs:
+      version: ${{ steps.version.outputs.version }}
       tag_name: ${{ steps.version.outputs.tag_name }}
     steps:
       - name: Generate version tag
         id: version
-        run: echo "tag_name=$(date -u '+%y.%m.%d')" >> "$GITHUB_OUTPUT"
+        run: |
+          version="$(TZ=Asia/Shanghai date '+%y.%m.%d')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$version" >> "$GITHUB_OUTPUT"
 
       - name: Delete existing release
         run: gh release delete "${{ steps.version.outputs.tag_name }}" --yes --cleanup-tag || true
@@ -63,18 +68,18 @@ jobs:
 
       - name: Build
         working-directory: miya-desktop
-        run: make build-macos
+        run: make build-macos APP_VERSION=${{ needs.prepare.outputs.version }}
 
       - name: Package
         working-directory: miya-desktop
         run: |
           mkdir -p build/artifacts
-          ditto -c -k --keepParent bin/Miya.app build/artifacts/miya-desktop-darwin-universal.zip
+          ditto -c -k --keepParent bin/Miya.app build/artifacts/miya-desktop-${{ needs.prepare.outputs.version }}-darwin-universal.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos
+          name: macos-${{ needs.prepare.outputs.version }}
           path: miya-desktop/build/artifacts/*
 
   windows:
@@ -118,19 +123,19 @@ jobs:
       - name: Build
         working-directory: miya-desktop
         shell: bash
-        run: make build-windows
+        run: make build-windows APP_VERSION=${{ needs.prepare.outputs.version }}
 
       - name: Package
         working-directory: miya-desktop
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build/artifacts | Out-Null
-          Compress-Archive -Path bin/miya-desktop.exe -DestinationPath build/artifacts/miya-desktop-windows-amd64.zip -Force
+          Compress-Archive -Path bin/miya-desktop.exe -DestinationPath build/artifacts/miya-desktop-${{ needs.prepare.outputs.version }}-windows-amd64.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows
+          name: windows-${{ needs.prepare.outputs.version }}
           path: miya-desktop/build/artifacts/*
 
   release:
@@ -145,8 +150,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
-          name: Miya ${{ needs.prepare.outputs.tag_name }}
+          name: Miya Desktop ${{ needs.prepare.outputs.version }}
           prerelease: true
           files: |
-            macos/*
-            windows/*
+            macos-${{ needs.prepare.outputs.version }}/*
+            windows-${{ needs.prepare.outputs.version }}/*

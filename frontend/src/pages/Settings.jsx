@@ -1004,6 +1004,8 @@ function ChannelsSettings() {
 }
 
 function AboutSettings() {
+  const version = import.meta.env.VITE_APP_VERSION || 'dev'
+
   return (
     <div className="space-y-4">
       <SectionHeader title="About" description="Product information and runtime scope." />
@@ -1012,7 +1014,7 @@ function AboutSettings() {
           <img src={miyaIcon} alt="" className="size-14 rounded-xl object-cover" />
           <div>
             <p className="text-base font-semibold">Miya Desktop</p>
-            <p className="text-sm text-muted-foreground">Version 0.1.0 Preview</p>
+            <p className="text-sm text-muted-foreground">Version {version}</p>
           </div>
         </div>
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">

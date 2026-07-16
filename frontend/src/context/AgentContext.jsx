@@ -61,7 +61,7 @@ export function AgentProvider({ children }) {
     } else {
       await ConnectAgent(target.command)
     }
-    const info = await InitializeAgent('miya-desktop', '0.1.0')
+    const info = await InitializeAgent('miya-desktop', import.meta.env.VITE_APP_VERSION || 'dev')
     if (target.id) setSelectedAgentId(target.id)
     setAgentInfo(info)
     setConnected(true)

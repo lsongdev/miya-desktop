@@ -132,6 +132,9 @@ func (a *App) ConnectConfiguredAgent(agentID string) error {
 }
 
 func (a *App) InitializeAgent(name, version string) (*agent.AgentInfo, error) {
+	if strings.TrimSpace(version) == "" {
+		version = appVersion
+	}
 	return a.manager.Initialize(name, version)
 }
 
@@ -399,7 +402,7 @@ func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {
 	_, err := client.Initialize(&acp.InitializeRequest{
 		ProtocolVersion:    1,
 		ClientCapabilities: acp.DefaultClientCapabilities(),
-		ClientInfo:         &acp.Implementation{Name: "miya-desktop", Version: "0.1.0"},
+		ClientInfo:         &acp.Implementation{Name: "miya-desktop", Version: appVersion},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize: %w", err)

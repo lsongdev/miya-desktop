@@ -14,6 +14,8 @@ var assets embed.FS
 //go:embed build/appicon.png
 var appIcon []byte
 
+var appVersion = "dev"
+
 func main() {
 	var wailsApp *application.App
 	appService := NewApp(func(name string, data ...any) {

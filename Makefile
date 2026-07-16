@@ -1,23 +1,33 @@
 APP_NAME := miya-desktop
 BIN_DIR  := bin
+APP_VERSION ?= $(shell TZ=Asia/Shanghai date +%y.%m.%d)
+MAC_APP := $(BIN_DIR)/Miya.app
+MAC_PLIST := $(MAC_APP)/Contents/Info.plist
+GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
 
-.PHONY: build build-macos build-windows run dev clean install generate-icons
+export VITE_APP_VERSION := $(APP_VERSION)
+
+.PHONY: build build-macos build-windows run dev clean install generate-icons version
 
 build:
 	cd frontend && npm run build
 	mkdir -p $(BIN_DIR)
-	go build -o $(BIN_DIR)/$(APP_NAME) .
+	go build -ldflags "$(GO_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME) .
 
 build-macos:
 	cd frontend && npm install && npm run build
-	mkdir -p $(BIN_DIR)/Miya.app/Contents/{MacOS,Resources}
-	go build -o $(BIN_DIR)/Miya.app/Contents/MacOS/$(APP_NAME) .
-	cp build/darwin/icons.icns $(BIN_DIR)/Miya.app/Contents/Resources/icons.icns
+	mkdir -p $(MAC_APP)/Contents/MacOS $(MAC_APP)/Contents/Resources
+	go build -ldflags "$(GO_LDFLAGS)" -o $(MAC_APP)/Contents/MacOS/$(APP_NAME) .
+	cp build/darwin/Info.plist $(MAC_PLIST)
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(APP_VERSION)" $(MAC_PLIST)
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(APP_VERSION)" $(MAC_PLIST)
+	cp build/darwin/icons.icns $(MAC_APP)/Contents/Resources/icons.icns
+	codesign --force --deep --sign - $(MAC_APP)
 
 build-windows:
 	cd frontend && npm install && npm run build
 	mkdir -p $(BIN_DIR)
-	GOOS=windows GOARCH=amd64 go build -o $(BIN_DIR)/$(APP_NAME).exe .
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(GO_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
 
 install:
 	cd frontend && npm install
@@ -34,6 +44,9 @@ generate-icons:
 		-macfilename build/darwin/icons.icns \
 		-windowsfilename build/windows/icon.ico \
 		-macassetdir build/darwin
+
+version:
+	@printf '%s\n' "$(APP_VERSION)"
 
 clean:
 	rm -rf $(BIN_DIR) frontend/dist
