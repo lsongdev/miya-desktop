@@ -6,9 +6,9 @@ Miya Desktop is a Wails + React desktop client for AI Agents. Its primary integr
 
 Related repositories are part of the same broader Miya AI Agents effort:
 
-- `/Users/Lsong/Projects/miya/miya-desktop`: desktop client and integration shell.
-- `/Users/Lsong/Projects/miya/miya-agents`: standalone AI agent loop and ACP implementation.
-- `/Users/Lsong/Projects/miya/miya-channels`: standalone multi-platform chat gateway that bridges chat platforms to ACP agents.
+- `miya/miya-desktop`: desktop client and integration shell.
+- `miya/miya-agents`: standalone AI agent loop and ACP implementation.
+- `miya/miya-channels`: standalone multi-platform chat gateway that bridges chat platforms to ACP agents.
 
 `miya-agents` and `miya-channels` are independent projects, but they are intended to be integrated into `miya-desktop`. If integration reveals protocol, runtime, state-management, or API issues in those repositories, it is acceptable to improve those repositories too, as long as the changes are scoped and compatible with their standalone use.
 
