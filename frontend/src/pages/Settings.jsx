@@ -3,11 +3,14 @@ import { useTheme } from '../context/ThemeContext'
 import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { ChannelsServiceStatus, FetchProviderModels, StartChannelsService, StartWeChatLogin, StopChannelsService } from '../../bindings/wails-app/app'
+import {
+  ChannelsServiceStatus, DeleteSkill, FetchProviderModels, InstallSkill, ListSkills,
+  StartChannelsService, StartWeChatLogin, StopChannelsService,
+} from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
 import { NavigationContext } from '../hooks/useNavigate'
 import {
-  MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info,
+  MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info, BookOpen,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
 } from 'lucide-react'
 import miyaIcon from '../assets/images/miya-icon.png'
@@ -18,6 +21,7 @@ const settingsItems = [
   { id: 'profiles', label: 'Profiles', icon: Bot },
   { id: 'providers', label: 'Providers', icon: Key },
   { id: 'mcp', label: 'MCP Servers', icon: Puzzle },
+  { id: 'skills', label: 'Skills', icon: BookOpen },
   { id: 'channels', label: 'Channels', icon: Radio },
   { id: 'about', label: 'About', icon: Info },
 ]
@@ -665,6 +669,130 @@ function McpSettings() {
   )
 }
 
+function SkillsSettings() {
+  const [skills, setSkills] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ name: '', description: '', prompt: '' })
+
+  const reset = () => setForm({ name: '', description: '', prompt: '' })
+  const loadSkills = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setSkills(await ListSkills() || [])
+    } catch (err) {
+      setError(err?.toString?.() || String(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSkills()
+  }, [])
+
+  const startAdd = () => { setAdding(true); setEditing(null); reset() }
+  const startEdit = (skill) => {
+    setAdding(false)
+    setEditing(skill.name)
+    setForm({
+      name: skill.name || '',
+      description: skill.description || '',
+      prompt: skill.prompt || '',
+    })
+  }
+  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.prompt.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      if (editing && editing !== form.name.trim()) {
+        await DeleteSkill(editing)
+      }
+      await InstallSkill(form.name.trim(), form.description.trim(), form.prompt.trim())
+      await loadSkills()
+      handleCancel()
+    } catch (err) {
+      setError(err?.toString?.() || String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+  const handleDelete = async (name) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await DeleteSkill(name)
+      await loadSkills()
+    } catch (err) {
+      setError(err?.toString?.() || String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const editor = (
+    <div className="space-y-2">
+      <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Skill name" className={inputClass} autoFocus />
+      <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description" className={inputClass} />
+      <textarea
+        value={form.prompt}
+        onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
+        placeholder="Skill prompt"
+        className="min-h-56 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+      />
+      <div className="flex gap-1.5">
+        <Button size="sm" onClick={handleSave} disabled={!form.name.trim() || !form.prompt.trim() || saving}>
+          {saving ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />} Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Skills"
+        description="Manage prompt skills available to miya-agents."
+        action={(
+          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null || saving}>
+            <Plus className="size-3.5 mr-1" /> Add Skill
+          </Button>
+        )}
+      />
+      <div className="rounded-lg border bg-card divide-y">
+        {loading && <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading skills...</div>}
+        {!loading && skills.map((skill) => (
+          <div key={skill.name} className="px-4 py-3">
+            {editing === skill.name ? editor : (
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm">{skill.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{skill.description || 'No description'}</p>
+                  <p className="mt-1 text-xs text-muted-foreground font-mono truncate">{skill.path}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(skill)}><Pencil className="size-3" /></Button>
+                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(skill.name)} disabled={saving}><Trash2 className="size-3" /></Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {!loading && skills.length === 0 && !adding && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No skills installed</div>}
+        {adding && <div className="px-4 py-3">{editor}</div>}
+      </div>
+      <ConfigError error={error} />
+    </div>
+  )
+}
+
 function ChannelsSettings() {
   const { config, saveConfig, saving, error } = useMiyaConfig()
   const channels = entriesOf(config.channels)
@@ -1049,6 +1177,7 @@ const settingsContent = {
   profiles: ProfilesSettings,
   providers: ProvidersSettings,
   mcp: McpSettings,
+  skills: SkillsSettings,
   channels: ChannelsSettings,
   about: AboutSettings,
 }

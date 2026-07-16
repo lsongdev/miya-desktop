@@ -26,6 +26,10 @@ import * as config$0 from "./internal/config/models.js";
 // @ts-ignore: Unused imports
 import * as conversation$0 from "./internal/conversation/models.js";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as $models from "./models.js";
+
 export function CancelSession(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(1661183533, sessionID);
 }
@@ -62,6 +66,10 @@ export function DeleteSession(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(3306942022, sessionID);
 }
 
+export function DeleteSkill(name: string): $CancellablePromise<void> {
+    return $Call.ByID(3246114851, name);
+}
+
 export function DisconnectAgent(): $CancellablePromise<void> {
     return $Call.ByID(2154738592);
 }
@@ -91,21 +99,33 @@ export function InitializeAgent(name: string, version: string): $CancellableProm
     });
 }
 
+export function InstallSkill(name: string, description: string, prompt: string): $CancellablePromise<$models.SkillInfo> {
+    return $Call.ByID(1305298693, name, description, prompt).then(($result: any) => {
+        return $$createType8($result);
+    });
+}
+
 export function ListAgentSessions(): $CancellablePromise<agent$0.Session[]> {
     return $Call.ByID(4152340815).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
     });
 }
 
 export function ListSessions(): $CancellablePromise<agent$0.Session[]> {
     return $Call.ByID(827108744).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType9($result);
+    });
+}
+
+export function ListSkills(): $CancellablePromise<$models.SkillInfo[]> {
+    return $Call.ByID(1140726611).then(($result: any) => {
+        return $$createType10($result);
     });
 }
 
 export function LoadMiyaConfig(): $CancellablePromise<config$0.Config | null> {
     return $Call.ByID(3087674083).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType12($result);
     });
 }
 
@@ -127,6 +147,10 @@ export function SaveMiyaConfig(cfg: config$0.Config | null): $CancellablePromise
 
 export function SendPrompt(sessionID: string, message: string): $CancellablePromise<void> {
     return $Call.ByID(2648413661, sessionID, message);
+}
+
+export function SkillsDirectory(): $CancellablePromise<string> {
+    return $Call.ByID(1655483614);
 }
 
 export function StartChannelsService(): $CancellablePromise<channels$0.Status> {
@@ -154,6 +178,8 @@ const $$createType4 = conversation$0.Conversation.createFrom;
 const $$createType5 = $Create.Nullable($$createType4);
 const $$createType6 = agent$0.AgentInfo.createFrom;
 const $$createType7 = $Create.Nullable($$createType6);
-const $$createType8 = $Create.Array($$createType1);
-const $$createType9 = config$1.Config.createFrom;
-const $$createType10 = $Create.Nullable($$createType9);
+const $$createType8 = $models.SkillInfo.createFrom;
+const $$createType9 = $Create.Array($$createType1);
+const $$createType10 = $Create.Array($$createType8);
+const $$createType11 = config$1.Config.createFrom;
+const $$createType12 = $Create.Nullable($$createType11);

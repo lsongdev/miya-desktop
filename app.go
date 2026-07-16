@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/lsongdev/miya-agents/acp"
 	"github.com/lsongdev/miya-agents/anthropic"
 	"github.com/lsongdev/miya-agents/openai"
+	"github.com/lsongdev/miya-agents/skills"
 	channelpkg "github.com/lsongdev/miya-channels/channels"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -36,6 +38,13 @@ type App struct {
 	wechatLoginMu     sync.Mutex
 	wechatLoginCancel context.CancelFunc
 	wechatLoginID     int64
+}
+
+type SkillInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Path        string `json:"path"`
+	Prompt      string `json:"prompt,omitempty"`
 }
 
 func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
@@ -266,6 +275,91 @@ func (a *App) LoadMiyaConfig() (*miyaconfig.Config, error) {
 
 func (a *App) SaveMiyaConfig(cfg *miyaconfig.Config) error {
 	return a.config.Save(cfg)
+}
+
+func (a *App) SkillsDirectory() string {
+	return filepath.Join(filepath.Dir(a.config.Path()), "skills")
+}
+
+func (a *App) ListSkills() ([]SkillInfo, error) {
+	dir := a.SkillsDirectory()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("create skills directory: %w", err)
+	}
+	loaded, err := skills.LoadSkillsFromDirectory(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SkillInfo, 0, len(loaded))
+	for _, skill := range loaded {
+		if skill == nil || strings.TrimSpace(skill.Name) == "" {
+			continue
+		}
+		name := strings.TrimSpace(skill.Name)
+		out = append(out, SkillInfo{
+			Name:        name,
+			Description: strings.TrimSpace(skill.Description),
+			Path:        filepath.Join(dir, safeSkillName(name), "SKILL.md"),
+			Prompt:      skill.Prompt,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	})
+	return out, nil
+}
+
+func (a *App) InstallSkill(name, description, prompt string) (SkillInfo, error) {
+	name = safeSkillName(name)
+	description = strings.TrimSpace(description)
+	prompt = strings.TrimSpace(prompt)
+	if name == "" {
+		return SkillInfo{}, fmt.Errorf("skill name is required")
+	}
+	if prompt == "" {
+		return SkillInfo{}, fmt.Errorf("skill prompt is required")
+	}
+	dir := filepath.Join(a.SkillsDirectory(), name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return SkillInfo{}, fmt.Errorf("create skill directory: %w", err)
+	}
+	path := filepath.Join(dir, "SKILL.md")
+	content := fmt.Sprintf("---\nname: %q\ndescription: %q\n---\n\n%s\n", name, description, prompt)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return SkillInfo{}, fmt.Errorf("write skill: %w", err)
+	}
+	return SkillInfo{Name: name, Description: description, Path: path, Prompt: prompt}, nil
+}
+
+func (a *App) DeleteSkill(name string) error {
+	name = safeSkillName(name)
+	if name == "" {
+		return fmt.Errorf("skill name is required")
+	}
+	dir := filepath.Join(a.SkillsDirectory(), name)
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("delete skill: %w", err)
+	}
+	return nil
+}
+
+func safeSkillName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range name {
+		ok := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
+		if ok {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if (r == '-' || r == '_' || r == ' ' || r == '.') && !lastDash && b.Len() > 0 {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }
 
 func (a *App) FetchProviderModels(providerID string) ([]string, error) {

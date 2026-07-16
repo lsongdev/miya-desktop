@@ -199,7 +199,7 @@ export class ProfileConfig {
     "contextWindowTokens"?: number;
 
     /**
-     * defaults to 0.8
+     * defaults to 0.9
      */
     "contextWarnRatio"?: number;
 
