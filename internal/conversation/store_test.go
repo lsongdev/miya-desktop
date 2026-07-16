@@ -79,6 +79,23 @@ func TestStoreResetSessionDropsPreviousReplay(t *testing.T) {
 	}
 }
 
+func TestStoreHasMessages(t *testing.T) {
+	store := testStore()
+
+	store.RegisterSessionWithACP("miya:s1", "s1", "/tmp/project")
+	if store.HasMessages("miya:s1") {
+		t.Fatal("empty registered session should not have messages")
+	}
+
+	store.ApplyACPEvent("miya:s1", mustEvent(t, `{
+		"sessionUpdate": "user_message_chunk",
+		"content": {"type": "text", "text": "hello"}
+	}`))
+	if !store.HasMessages("miya:s1") {
+		t.Fatal("session with replayed message should have messages")
+	}
+}
+
 func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	store := testStore()
 

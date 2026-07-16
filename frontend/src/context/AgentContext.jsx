@@ -96,6 +96,7 @@ export function AgentProvider({ children }) {
       setError(err.toString())
       setConnected(false)
       setAgentInfo(null)
+      if (options.throwOnError) throw err
     } finally {
       setConnecting(false)
     }
@@ -109,7 +110,7 @@ export function AgentProvider({ children }) {
 
   const reconnect = useCallback(async (agent) => {
     await disconnect()
-    await connect(agent)
+    await connect(agent, { throwOnError: true })
   }, [disconnect, connect])
 
   useEffect(() => {

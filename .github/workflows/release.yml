@@ -68,13 +68,16 @@ jobs:
 
       - name: Build
         working-directory: miya-desktop
-        run: make build-macos APP_VERSION=${{ needs.prepare.outputs.version }}
+        run: |
+          make build-macos APP_VERSION=${{ needs.prepare.outputs.version }}
+          make build-macos-arm64 APP_VERSION=${{ needs.prepare.outputs.version }}
 
       - name: Package
         working-directory: miya-desktop
         run: |
           mkdir -p build/artifacts
           ditto -c -k --keepParent bin/Miya.app build/artifacts/miya-desktop-${{ needs.prepare.outputs.version }}-darwin-universal.zip
+          ditto -c -k --keepParent bin/Miya-arm64.app build/artifacts/miya-desktop-${{ needs.prepare.outputs.version }}-darwin-arm64.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
 import { useAgent } from '@/context/AgentContext'
-import { CancelSession, DefaultCwd, SendPrompt, LoadSession } from '../../bindings/wails-app/app'
+import { CancelSession, DefaultCwd, GetConversation, SendPrompt, LoadSession } from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
 import {
   Send,
@@ -133,19 +133,43 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    if (shouldLoad && !loadedRef.current) {
+    let cancelled = false
+
+    const hydrateConversation = async () => {
+      let existing = null
+      try {
+        existing = await GetConversation(sessionId)
+        if (!cancelled && existing) setConversation(existing)
+      } catch {
+        existing = null
+      }
+
+      const hasMessages = (existing?.messages?.length || 0) > 0
+      if (!shouldLoad || hasMessages || loadedRef.current) {
+        onLoadComplete?.()
+        return
+      }
+
       loadedRef.current = true
       setLoading(true)
-      setConversation(null)
-      Promise.resolve(session.cwd || DefaultCwd())
-        .then((cwd) => LoadSession(sessionId, cwd))
-        .catch((err) => {
+      try {
+        const cwd = session.cwd || await DefaultCwd()
+        await LoadSession(sessionId, cwd)
+      } catch (err) {
+        if (!cancelled) {
           setError(err.toString())
-        })
-        .finally(() => {
+        }
+      } finally {
+        if (!cancelled) {
           setLoading(false)
           onLoadComplete?.()
-        })
+        }
+      }
+    }
+
+    hydrateConversation()
+    return () => {
+      cancelled = true
     }
   }, [shouldLoad, sessionId, session?.cwd, onLoadComplete])
 

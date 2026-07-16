@@ -71,6 +71,14 @@ func (s *Store) Snapshot(sessionID string) (Snapshot, bool) {
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "snapshot"}, true
 }
 
+func (s *Store) HasMessages(sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	conv, ok := s.conversations[sessionID]
+	return ok && len(conv.Messages) > 0
+}
+
 func (s *Store) AddLocalUserMessage(sessionID, text string) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()

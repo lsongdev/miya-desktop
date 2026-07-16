@@ -325,6 +325,12 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
 		conversationID, acpSessionID := m.splitSessionRef(sessionID)
 		log.Printf("[agent] LoadSession: id=%q acp=%q cwd=%q", conversationID, acpSessionID, cwd)
+		if m.store.HasMessages(conversationID) {
+			if snapshot, ok := m.store.Snapshot(conversationID); ok {
+				m.emitEvent("conversation:update", snapshot)
+			}
+			return nil
+		}
 		snapshot := m.store.ResetSessionWithACP(conversationID, acpSessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
 		_, err := client.LoadSession(&acp.LoadSessionRequest{
