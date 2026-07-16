@@ -1,6 +1,6 @@
 APP_NAME := miya-desktop
 BIN_DIR  := bin
-APP_VERSION ?= $(shell TZ=Asia/Shanghai date +%y.%m.%d)
+APP_VERSION ?= $(shell TZ=Asia/Shanghai date '+%y.%m.%d' | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3}')
 MAC_APP ?= $(BIN_DIR)/Miya.app
 MAC_PLIST = $(MAC_APP)/Contents/Info.plist
 MAC_GOENV ?=

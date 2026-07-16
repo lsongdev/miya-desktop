@@ -8,5 +8,6 @@ export {
 
 export {
     AttachmentData,
-    SkillInfo
+    SkillInfo,
+    UpdateCheckResult
 } from "./models.js";

@@ -64,3 +64,36 @@ export class SkillInfo {
         return new SkillInfo($$parsedSource as Partial<SkillInfo>);
     }
 }
+
+export class UpdateCheckResult {
+    "status": string;
+    "message": string;
+    "currentVersion": string;
+    "state": string;
+
+    /** Creates a new UpdateCheckResult instance. */
+    constructor($$source: Partial<UpdateCheckResult> = {}) {
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+        if (!("message" in $$source)) {
+            this["message"] = "";
+        }
+        if (!("currentVersion" in $$source)) {
+            this["currentVersion"] = "";
+        }
+        if (!("state" in $$source)) {
+            this["state"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdateCheckResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdateCheckResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UpdateCheckResult($$parsedSource as Partial<UpdateCheckResult>);
+    }
+}

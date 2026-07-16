@@ -4,6 +4,7 @@ import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
+  CheckForUpdates,
   ChannelsServiceStatus, DeleteSkill, FetchProviderModels, InstallSkill, ListSkills,
   StartChannelsService, StartWeChatLogin, StopChannelsService,
 } from '../../bindings/wails-app/app'
@@ -1152,18 +1153,46 @@ function ChannelsSettings() {
 
 function AboutSettings() {
   const version = import.meta.env.VITE_APP_VERSION || 'dev'
+  const [checking, setChecking] = useState(false)
+  const [updateMessage, setUpdateMessage] = useState(null)
+  const [updateError, setUpdateError] = useState(null)
+
+  const handleCheckForUpdates = async () => {
+    setChecking(true)
+    setUpdateMessage(null)
+    setUpdateError(null)
+    try {
+      const result = await CheckForUpdates()
+      setUpdateMessage(result?.message || 'Update check complete.')
+    } catch (err) {
+      setUpdateError(err?.toString?.() || String(err))
+    } finally {
+      setChecking(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
       <SectionHeader title="About" description="Product information and runtime scope." />
       <div className="rounded-lg border bg-card p-5 space-y-5">
-        <div className="flex items-center gap-4">
-          <img src={miyaIcon} alt="" className="size-14 rounded-xl object-cover" />
-          <div>
-            <p className="text-base font-semibold">Miya Desktop</p>
-            <p className="text-sm text-muted-foreground">Version {version}</p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <img src={miyaIcon} alt="" className="size-14 rounded-xl object-cover" />
+            <div className="min-w-0">
+              <p className="text-base font-semibold">Miya Desktop</p>
+              <p className="text-sm text-muted-foreground">Version {version}</p>
+            </div>
           </div>
+          <Button size="sm" variant="outline" onClick={handleCheckForUpdates} disabled={checking}>
+            {checking && <Loader2 className="size-3.5 mr-1 animate-spin" />}
+            Check for Updates
+          </Button>
         </div>
+        {(updateMessage || updateError) && (
+          <p className={`text-xs ${updateError ? 'text-destructive' : 'text-muted-foreground'}`}>
+            {updateError || updateMessage}
+          </p>
+        )}
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
           Miya Desktop is an ACP-native client for managing agent conversations, local agent runtime profiles,
           MCP tools, and remote-control channels from a single desktop workspace.

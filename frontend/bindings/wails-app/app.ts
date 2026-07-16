@@ -40,6 +40,12 @@ export function ChannelsServiceStatus(): $CancellablePromise<channels$0.Status> 
     });
 }
 
+export function CheckForUpdates(): $CancellablePromise<$models.UpdateCheckResult | null> {
+    return $Call.ByID(2675659504).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
 export function CloseSession(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(1620748453, sessionID);
 }
@@ -54,7 +60,7 @@ export function ConnectConfiguredAgent(agentID: string): $CancellablePromise<voi
 
 export function CreateSession(cwd: string): $CancellablePromise<agent$0.Session | null> {
     return $Call.ByID(2952361431, cwd).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType4($result);
     });
 }
 
@@ -76,13 +82,13 @@ export function DisconnectAgent(): $CancellablePromise<void> {
 
 export function FetchProviderModels(providerID: string): $CancellablePromise<string[]> {
     return $Call.ByID(58019244, providerID).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType5($result);
     });
 }
 
 export function GetConversation(sessionID: string): $CancellablePromise<agent$0.Conversation | null> {
     return $Call.ByID(2657599328, sessionID).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType7($result);
     });
 }
 
@@ -95,37 +101,37 @@ export function Greet(name: string): $CancellablePromise<string> {
 
 export function InitializeAgent(name: string, version: string): $CancellablePromise<agent$0.AgentInfo | null> {
     return $Call.ByID(3251009104, name, version).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType9($result);
     });
 }
 
 export function InstallSkill(name: string, description: string, prompt: string): $CancellablePromise<$models.SkillInfo> {
     return $Call.ByID(1305298693, name, description, prompt).then(($result: any) => {
-        return $$createType8($result);
+        return $$createType10($result);
     });
 }
 
 export function ListAgentSessions(): $CancellablePromise<agent$0.Session[]> {
     return $Call.ByID(4152340815).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
 }
 
 export function ListSessions(): $CancellablePromise<agent$0.Session[]> {
     return $Call.ByID(827108744).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
 }
 
 export function ListSkills(): $CancellablePromise<$models.SkillInfo[]> {
     return $Call.ByID(1140726611).then(($result: any) => {
-        return $$createType10($result);
+        return $$createType12($result);
     });
 }
 
 export function LoadMiyaConfig(): $CancellablePromise<config$0.Config | null> {
     return $Call.ByID(3087674083).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType14($result);
     });
 }
 
@@ -143,7 +149,7 @@ export function OpenAttachment(target: string): $CancellablePromise<void> {
 
 export function ReadAttachment(target: string, maxBytes: number): $CancellablePromise<$models.AttachmentData | null> {
     return $Call.ByID(4083110208, target, maxBytes).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType16($result);
     });
 }
 
@@ -181,17 +187,19 @@ export function StopChannelsService(): $CancellablePromise<channels$0.Status> {
 
 // Private type creation functions
 const $$createType0 = channels$0.Status.createFrom;
-const $$createType1 = agent$0.Session.createFrom;
+const $$createType1 = $models.UpdateCheckResult.createFrom;
 const $$createType2 = $Create.Nullable($$createType1);
-const $$createType3 = $Create.Array($Create.Any);
-const $$createType4 = conversation$0.Conversation.createFrom;
-const $$createType5 = $Create.Nullable($$createType4);
-const $$createType6 = agent$0.AgentInfo.createFrom;
+const $$createType3 = agent$0.Session.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = $Create.Array($Create.Any);
+const $$createType6 = conversation$0.Conversation.createFrom;
 const $$createType7 = $Create.Nullable($$createType6);
-const $$createType8 = $models.SkillInfo.createFrom;
-const $$createType9 = $Create.Array($$createType1);
-const $$createType10 = $Create.Array($$createType8);
-const $$createType11 = config$1.Config.createFrom;
-const $$createType12 = $Create.Nullable($$createType11);
-const $$createType13 = $models.AttachmentData.createFrom;
+const $$createType8 = agent$0.AgentInfo.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = $models.SkillInfo.createFrom;
+const $$createType11 = $Create.Array($$createType3);
+const $$createType12 = $Create.Array($$createType10);
+const $$createType13 = config$1.Config.createFrom;
 const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = $models.AttachmentData.createFrom;
+const $$createType16 = $Create.Nullable($$createType15);

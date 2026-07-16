@@ -4,10 +4,13 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
+	wailsupdater "github.com/wailsapp/wails/v3/pkg/updater"
+	githubupdater "github.com/wailsapp/wails/v3/pkg/updater/providers/github"
 )
 
 //go:embed all:frontend/dist/*
@@ -42,6 +45,10 @@ func main() {
 			ApplicationShouldTerminateAfterLastWindowClosed: false,
 		},
 	})
+	appService.setUpdater(wailsApp.Updater)
+	if err := configureUpdater(wailsApp); err != nil {
+		log.Printf("[updater] init failed: %v", err)
+	}
 
 	window := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
@@ -103,4 +110,59 @@ func main() {
 	if err != nil {
 		log.Fatal(fmt.Errorf("run app: %w", err))
 	}
+}
+
+func configureUpdater(app *application.App) error {
+	gh, err := githubupdater.New(githubupdater.Config{
+		Repository:    "lsongdev/miya-desktop",
+		Prerelease:    true,
+		ChecksumAsset: "SHA256SUMS",
+		AssetMatcher:  miyaReleaseAssetMatcher,
+	})
+	if err != nil {
+		return err
+	}
+	return app.Updater.Init(wailsupdater.Config{
+		CurrentVersion: appVersion,
+		Providers:      []wailsupdater.Provider{gh},
+		Window: &wailsupdater.BuiltinWindow{
+			Options: wailsupdater.WindowOptions{
+				Title: "Miya Desktop Update",
+			},
+		},
+	})
+}
+
+func miyaReleaseAssetMatcher(req wailsupdater.CheckRequest, assets []githubupdater.ReleaseAsset) int {
+	platform := strings.ToLower(req.Platform)
+	arch := strings.ToLower(req.Arch)
+	best := -1
+	bestScore := -1
+	for i, asset := range assets {
+		name := strings.ToLower(asset.Name)
+		if strings.HasSuffix(name, ".sig") || strings.HasSuffix(name, ".asc") || strings.Contains(name, "sha256sums") {
+			continue
+		}
+		if !strings.Contains(name, platform) {
+			continue
+		}
+		score := 1
+		if platform == "darwin" && strings.Contains(name, "universal") {
+			score = 2
+		}
+		if arch != "" && strings.Contains(name, arch) {
+			score = 3
+		}
+		if arch == "amd64" && (strings.Contains(name, "x86_64") || strings.Contains(name, "x64")) {
+			score = 3
+		}
+		if arch == "arm64" && strings.Contains(name, "aarch64") {
+			score = 3
+		}
+		if score > bestScore {
+			best = i
+			bestScore = score
+		}
+	}
+	return best
 }

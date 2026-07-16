@@ -29,6 +29,7 @@ import (
 	"github.com/lsongdev/miya-agents/skills"
 	channelpkg "github.com/lsongdev/miya-channels/channels"
 	"github.com/wailsapp/wails/v3/pkg/application"
+	wailsupdater "github.com/wailsapp/wails/v3/pkg/updater"
 )
 
 // App struct
@@ -39,6 +40,7 @@ type App struct {
 
 	config   *miyaconfig.Service
 	channels *channelservice.Service
+	updater  *wailsupdater.Updater
 
 	wechatLoginMu     sync.Mutex
 	wechatLoginCancel context.CancelFunc
@@ -59,6 +61,13 @@ type AttachmentData struct {
 	Data     string `json:"data"`
 }
 
+type UpdateCheckResult struct {
+	Status         string `json:"status"`
+	Message        string `json:"message"`
+	CurrentVersion string `json:"currentVersion"`
+	State          string `json:"state"`
+}
+
 func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
 	return miyaconfig.ACPAgentConfig{
 		ID:      "miya",
@@ -73,6 +82,10 @@ func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
 // NewApp creates a new App application struct
 func NewApp(emit agent.EventEmitter) *App {
 	return &App{emit: emit}
+}
+
+func (a *App) setUpdater(updater *wailsupdater.Updater) {
+	a.updater = updater
 }
 
 func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
@@ -122,6 +135,55 @@ func (a *App) shutdown() {
 
 func channelsEnabled(cfg *miyaconfig.Config) bool {
 	return cfg.ChannelsEnabled == nil || *cfg.ChannelsEnabled
+}
+
+func (a *App) CheckForUpdates() (*UpdateCheckResult, error) {
+	if a.updater == nil {
+		return nil, fmt.Errorf("updater is not available")
+	}
+	if !isReleaseVersion(appVersion) {
+		return nil, fmt.Errorf("updates are only available in release builds")
+	}
+	if err := a.updater.CheckAndInstall(context.Background()); err != nil {
+		return nil, err
+	}
+	state := string(a.updater.State())
+	message := "Update check complete."
+	switch a.updater.State() {
+	case wailsupdater.StateUpToDate:
+		message = "You're running the latest version."
+	case wailsupdater.StateReady:
+		message = "Update downloaded. Restart from the update window to finish installing."
+	case wailsupdater.StateAvailable:
+		message = "Update available."
+	}
+	return &UpdateCheckResult{
+		Status:         state,
+		Message:        message,
+		CurrentVersion: appVersion,
+		State:          state,
+	}, nil
+}
+
+func isReleaseVersion(version string) bool {
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+		if len(part) > 1 && part[0] == '0' {
+			return false
+		}
+	}
+	return true
 }
 
 // Greet returns a greeting for the given name
