@@ -226,9 +226,6 @@ func (m *Manager) initializeLocked() error {
 	if err != nil {
 		return fmt.Errorf("agent: initialize: %w", err)
 	}
-	if err := m.client.SendNotification("notifications/initialized", struct{}{}); err != nil {
-		return fmt.Errorf("agent: initialized notification: %w", err)
-	}
 	info := &AgentInfo{
 		LoadSession: resp.AgentCapabilities.LoadSession,
 	}

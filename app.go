@@ -407,9 +407,6 @@ func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initialize: %w", err)
 	}
-	if err := client.SendNotification("notifications/initialized", struct{}{}); err != nil {
-		return nil, fmt.Errorf("initialized notification: %w", err)
-	}
 	resp, err := client.ListSessions(&acp.ListSessionsRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)

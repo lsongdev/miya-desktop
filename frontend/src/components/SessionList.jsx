@@ -21,6 +21,19 @@ function sessionKey(session) {
   return session?.key || session?.id || ''
 }
 
+function mergeSessions(primary = [], preserved = []) {
+  const merged = new Map()
+  for (const session of primary) {
+    const key = sessionKey(session)
+    if (key) merged.set(key, session)
+  }
+  for (const session of preserved) {
+    const key = sessionKey(session)
+    if (key && !merged.has(key)) merged.set(key, session)
+  }
+  return Array.from(merged.values())
+}
+
 function groupSessions(sessions, agents) {
   const groups = []
   const byAgent = new Map()
@@ -49,11 +62,11 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (preserve = []) => {
     try {
       setLoading(true)
       const list = await ListAgentSessions()
-      setSessions(list || [])
+      setSessions(mergeSessions(list || [], preserve))
     } catch (err) {
       console.error('Failed to list sessions:', err)
     } finally {
@@ -81,6 +94,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       const targetAgent = await onBeforeCreateSession?.(agent) || agent
       const cwd = await DefaultCwd()
       const session = await CreateSession(cwd)
+      if (!session?.id) throw new Error('Agent returned an empty session')
       const enrichedSession = targetAgent ? {
         ...session,
         agentId: targetAgent.id,
@@ -88,8 +102,9 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
         agentCommand: targetAgent.command,
         key: `${targetAgent.id}:${session.id}`,
       } : session
-      await fetchSessions()
+      setSessions((prev) => mergeSessions(prev, [enrichedSession]))
       ;(onNewSessionProp || onSelectSession)(enrichedSession)
+      await fetchSessions([enrichedSession])
     } catch (err) {
       console.error('Create session error:', err)
       setActionError(`Create failed: ${err?.toString() || err}`)
