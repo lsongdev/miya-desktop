@@ -4,6 +4,7 @@ vars:
   APP_NAME: miya-desktop
   BIN_DIR: bin
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  APP_VERSION: '{{.APP_VERSION | default "dev"}}'
 
 tasks:
   app:build:
@@ -35,7 +36,9 @@ tasks:
 
   windows:build:
     cmds:
-      - task: app:build
+      - cd frontend && npm run build
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=windows GOARCH=amd64 go build -ldflags "-X main.appVersion={{.APP_VERSION}} -H windowsgui" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe .
 
   linux:build:
     cmds:

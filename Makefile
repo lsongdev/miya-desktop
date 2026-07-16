@@ -5,6 +5,7 @@ MAC_APP ?= $(BIN_DIR)/Miya.app
 MAC_PLIST = $(MAC_APP)/Contents/Info.plist
 MAC_GOENV ?=
 GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
+WINDOWS_LDFLAGS := $(GO_LDFLAGS) -H windowsgui
 
 export VITE_APP_VERSION := $(APP_VERSION)
 
@@ -31,7 +32,7 @@ build-macos-arm64:
 build-windows:
 	cd frontend && npm install && npm run build
 	mkdir -p $(BIN_DIR)
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(GO_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
 
 install:
 	cd frontend && npm install
