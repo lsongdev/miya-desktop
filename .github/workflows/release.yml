@@ -1,22 +1,31 @@
-name: Release
+name: Build
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: Release tag to create, for example v0.1.0-test.1
-        required: true
-        default: v0.1.0-test.1
   push:
-    tags:
-      - "v*"
+    branches: [master]
 
 permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.version.outputs.tag_name }}
+    steps:
+      - name: Generate version tag
+        id: version
+        run: echo "tag_name=$(date -u '+%y.%m.%d')" >> "$GITHUB_OUTPUT"
+
+      - name: Delete existing release
+        run: gh release delete "${{ steps.version.outputs.tag_name }}" --yes --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   macos:
     name: Build macOS
+    needs: prepare
     runs-on: macos-latest
     steps:
       - name: Checkout desktop
@@ -52,29 +61,25 @@ jobs:
           cache: npm
           cache-dependency-path: miya-desktop/frontend/package-lock.json
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
-
       - name: Build
         working-directory: miya-desktop
-        run: wails build -platform darwin/universal -clean -trimpath
+        run: make build-macos
 
       - name: Package
         working-directory: miya-desktop
         run: |
           mkdir -p build/artifacts
-          ditto -c -k --keepParent build/bin/Miya.app build/artifacts/miya-desktop-darwin-universal.zip
+          ditto -c -k --keepParent bin/Miya.app build/artifacts/miya-desktop-darwin-universal.zip
 
-      - name: Upload release
-        uses: softprops/action-gh-release@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.event.inputs.version || github.ref_name }}
-          name: Miya ${{ github.event.inputs.version || github.ref_name }}
-          prerelease: true
-          files: miya-desktop/build/artifacts/*
+          name: macos
+          path: miya-desktop/build/artifacts/*
 
   windows:
     name: Build Windows
+    needs: prepare
     runs-on: windows-latest
     steps:
       - name: Checkout desktop
@@ -110,24 +115,38 @@ jobs:
           cache: npm
           cache-dependency-path: miya-desktop/frontend/package-lock.json
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
-
       - name: Build
         working-directory: miya-desktop
-        run: wails build -platform windows/amd64 -clean -trimpath
+        shell: bash
+        run: make build-windows
 
       - name: Package
         working-directory: miya-desktop
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build/artifacts | Out-Null
-          Compress-Archive -Path build/bin/miya-desktop.exe -DestinationPath build/artifacts/miya-desktop-windows-amd64.zip -Force
+          Compress-Archive -Path bin/miya-desktop.exe -DestinationPath build/artifacts/miya-desktop-windows-amd64.zip -Force
 
-      - name: Upload release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: miya-desktop/build/artifacts/*
+
+  release:
+    name: Create Release
+    needs: [prepare, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version || github.ref_name }}
-          name: Miya ${{ github.event.inputs.version || github.ref_name }}
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: Miya ${{ needs.prepare.outputs.tag_name }}
           prerelease: true
-          files: miya-desktop/build/artifacts/*
+          files: |
+            macos/*
+            windows/*
