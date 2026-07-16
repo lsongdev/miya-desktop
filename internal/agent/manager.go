@@ -504,7 +504,7 @@ func (m *Manager) ListSessions() ([]Session, error) {
 func (m *Manager) GetConversation(sessionID string) (*conversation.Conversation, error) {
 	snapshot, ok := m.store.Snapshot(sessionID)
 	if !ok {
-		return nil, fmt.Errorf("agent: conversation not found: %s", sessionID)
+		return nil, nil
 	}
 	return &snapshot.Conversation, nil
 }
