@@ -127,6 +127,33 @@ func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	}
 }
 
+func TestStoreAddsResourceBlock(t *testing.T) {
+	store := testStore()
+
+	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
+		"sessionUpdate": "agent_message_chunk",
+		"content": {
+			"type": "resource",
+			"name": "report.pdf",
+			"mimeType": "application/pdf",
+			"size": 4096,
+			"uri": "file:///tmp/report.pdf"
+		}
+	}`))
+
+	msgs := snap.Conversation.Messages
+	if len(msgs) != 1 || len(msgs[0].Blocks) != 1 {
+		t.Fatalf("messages = %#v", msgs)
+	}
+	block := msgs[0].Blocks[0]
+	if block.Type != BlockResource || block.Name != "report.pdf" {
+		t.Fatalf("block = %#v", block)
+	}
+	if block.Mime != "application/pdf" || block.Size != 4096 || block.URI != "file:///tmp/report.pdf" {
+		t.Fatalf("metadata = %#v", block)
+	}
+}
+
 func TestStoreMergesToolUpdates(t *testing.T) {
 	store := testStore()
 

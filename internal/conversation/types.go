@@ -21,6 +21,7 @@ const (
 	BlockPlan     = "plan"
 	BlockImage    = "image"
 	BlockAudio    = "audio"
+	BlockResource = "resource"
 	BlockError    = "error"
 )
 
@@ -62,6 +63,9 @@ type Block struct {
 	Content string          `json:"content,omitempty"`
 	Data    string          `json:"data,omitempty"`
 	Mime    string          `json:"mime,omitempty"`
+	URI     string          `json:"uri,omitempty"`
+	Name    string          `json:"name,omitempty"`
+	Size    int             `json:"size,omitempty"`
 	Tool    *acp.ToolCall   `json:"tool,omitempty"`
 	Plan    *acp.Plan       `json:"plan,omitempty"`
 	Raw     json.RawMessage `json:"raw,omitempty"`

@@ -25,6 +25,32 @@ func TestParseUpdateMessageChunk(t *testing.T) {
 	}
 }
 
+func TestParseUpdateResourceChunk(t *testing.T) {
+	event := mustParse(t, `{
+		"sessionUpdate": "agent_message_chunk",
+		"content": {
+			"type": "resource",
+			"name": "report.pdf",
+			"mimeType": "application/pdf",
+			"size": 4096,
+			"uri": "file:///tmp/report.pdf"
+		}
+	}`)
+
+	if event.Content == nil {
+		t.Fatalf("content is nil")
+	}
+	if event.Content.Type != "resource" || event.Content.Name != "report.pdf" {
+		t.Fatalf("content = %#v", event.Content)
+	}
+	if event.Content.Mime != "application/pdf" || event.Content.Size != 4096 {
+		t.Fatalf("metadata = %#v", event.Content)
+	}
+	if event.Content.URI != "file:///tmp/report.pdf" {
+		t.Fatalf("uri = %q", event.Content.URI)
+	}
+}
+
 func TestParseUpdateThoughtContentBlock(t *testing.T) {
 	event := mustParse(t, `{
 		"sessionUpdate": "agent_thought_chunk",

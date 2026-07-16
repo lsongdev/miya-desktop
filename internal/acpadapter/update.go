@@ -13,6 +13,9 @@ type ContentChunk struct {
 	Thought   string `json:"thought,omitempty"`
 	Data      string `json:"data,omitempty"`
 	Mime      string `json:"mime,omitempty"`
+	URI       string `json:"uri,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Size      int    `json:"size,omitempty"`
 	MessageID string `json:"messageId,omitempty"`
 }
 
@@ -56,9 +59,19 @@ func ParseUpdate(raw json.RawMessage) (*Event, error) {
 		switch u.Content.Type {
 		case "text":
 			e.Content.Content = u.Content.Text
-		case "image", "audio":
+		case "image", "audio", "resource", "resource_link":
 			e.Content.Data = u.Content.Data
 			e.Content.Mime = u.Content.MimeType
+			if u.Content.URI != nil {
+				e.Content.URI = *u.Content.URI
+			}
+			e.Content.Name = u.Content.Name
+			if u.Content.Size != nil {
+				e.Content.Size = *u.Content.Size
+			}
+			if u.Content.Text != "" {
+				e.Content.Content = u.Content.Text
+			}
 		}
 	case "agent_thought_chunk":
 		var u struct {

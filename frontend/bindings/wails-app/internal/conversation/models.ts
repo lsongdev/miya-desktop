@@ -18,6 +18,9 @@ export class Block {
     "content"?: string;
     "data"?: string;
     "mime"?: string;
+    "uri"?: string;
+    "name"?: string;
+    "size"?: number;
     "tool"?: acp$0.ToolCall | null;
     "plan"?: acp$0.Plan | null;
     "raw"?: json$0.RawMessage;
@@ -38,14 +41,14 @@ export class Block {
      * Creates a new Block instance from a string or object.
      */
     static createFrom($$source: any = {}): Block {
-        const $$createField5_0 = $$createType1;
-        const $$createField6_0 = $$createType3;
+        const $$createField8_0 = $$createType1;
+        const $$createField9_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool" in $$parsedSource) {
-            $$parsedSource["tool"] = $$createField5_0($$parsedSource["tool"]);
+            $$parsedSource["tool"] = $$createField8_0($$parsedSource["tool"]);
         }
         if ("plan" in $$parsedSource) {
-            $$parsedSource["plan"] = $$createField6_0($$parsedSource["plan"]);
+            $$parsedSource["plan"] = $$createField9_0($$parsedSource["plan"]);
         }
         return new Block($$parsedSource as Partial<Block>);
     }

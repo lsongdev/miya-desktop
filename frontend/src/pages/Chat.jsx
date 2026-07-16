@@ -17,6 +17,8 @@ import {
   XCircle,
   Clock,
   AlertTriangle,
+  FileText,
+  ExternalLink,
 } from 'lucide-react'
 
 const StopReasonLabels = {
@@ -80,18 +82,57 @@ function PlanDisplay({ plan }) {
   )
 }
 
+function fileSizeLabel(size) {
+  const bytes = Number(size || 0)
+  if (!bytes) return null
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function blockURL(block) {
+  if (block.data) return `data:${block.mime || 'application/octet-stream'};base64,${block.data}`
+  if (block.uri) return block.uri
+  return null
+}
+
+function ResourceDisplay({ block }) {
+  const href = blockURL(block)
+  const name = block.name || block.content || 'Attached file'
+  const meta = [block.mime, fileSizeLabel(block.size)].filter(Boolean).join(' · ')
+
+  return (
+    <a
+      href={href || undefined}
+      target="_blank"
+      rel="noreferrer"
+      className={`my-1 flex max-w-[320px] items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-foreground ${
+        href ? 'hover:bg-muted/50' : 'pointer-events-none opacity-70'
+      }`}
+    >
+      <FileText className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">{name}</span>
+        {meta && <span className="block truncate text-xs text-muted-foreground">{meta}</span>}
+      </span>
+      {href && <ExternalLink className="size-3 shrink-0 text-muted-foreground" />}
+    </a>
+  )
+}
+
 function MessageBlock({ block, role, streaming }) {
   if (block.type === 'thought') return <ThoughtDisplay text={block.content} />
   if (block.type === 'tool_call') return <ToolCallDisplay tool={block.tool} />
   if (block.type === 'plan') return <PlanDisplay plan={block.plan} />
   if (block.type === 'image') {
-    const src = block.data ? `data:${block.mime};base64,${block.data}` : null
+    const src = blockURL(block)
     return src ? <img src={src} alt="" className="max-w-[280px] rounded-md border" /> : null
   }
   if (block.type === 'audio') {
-    const src = block.data ? `data:${block.mime};base64,${block.data}` : null
+    const src = blockURL(block)
     return src ? <audio src={src} controls className="max-w-full" /> : null
   }
+  if (block.type === 'resource') return <ResourceDisplay block={block} />
 
   return (
     <div

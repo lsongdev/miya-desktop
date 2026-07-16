@@ -186,6 +186,9 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 			Type: BlockImage,
 			Data: event.Content.Data,
 			Mime: event.Content.Mime,
+			URI:  event.Content.URI,
+			Name: event.Content.Name,
+			Size: event.Content.Size,
 			Raw:  cloneRaw(event.Raw),
 		})
 	case "audio":
@@ -194,7 +197,22 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 			Type: BlockAudio,
 			Data: event.Content.Data,
 			Mime: event.Content.Mime,
+			URI:  event.Content.URI,
+			Name: event.Content.Name,
+			Size: event.Content.Size,
 			Raw:  cloneRaw(event.Raw),
+		})
+	case "resource", "resource_link":
+		msg.Blocks = append(msg.Blocks, Block{
+			ID:      s.nextIDStringLocked("block"),
+			Type:    BlockResource,
+			Content: event.Content.Content,
+			Data:    event.Content.Data,
+			Mime:    event.Content.Mime,
+			URI:     event.Content.URI,
+			Name:    event.Content.Name,
+			Size:    event.Content.Size,
+			Raw:     cloneRaw(event.Raw),
 		})
 	}
 	msg.UpdatedAt = now
