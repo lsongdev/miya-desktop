@@ -4,6 +4,7 @@ APP_VERSION ?= $(shell TZ=Asia/Shanghai date +%y.%m.%d)
 MAC_APP ?= $(BIN_DIR)/Miya.app
 MAC_PLIST = $(MAC_APP)/Contents/Info.plist
 MAC_GOENV ?=
+WAILS3 ?= go tool wails3
 GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
 WINDOWS_LDFLAGS := $(GO_LDFLAGS) -H windowsgui
 WINDOWS_SYSO := wails_windows_amd64.syso
@@ -33,7 +34,7 @@ build-macos-arm64:
 build-windows:
 	cd frontend && npm install && npm run build
 	mkdir -p $(BIN_DIR)
-	wails3 generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out $(WINDOWS_SYSO)
+	$(WAILS3) generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out $(WINDOWS_SYSO)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
 	rm -f $(WINDOWS_SYSO)
 
@@ -41,13 +42,13 @@ install:
 	cd frontend && npm install
 
 dev:
-	wails3 dev -config ./build/config.yml
+	$(WAILS3) dev -config ./build/config.yml
 
 run: build
 	./$(BIN_DIR)/$(APP_NAME)
 
 generate-icons:
-	wails3 generate icons \
+	$(WAILS3) generate icons \
 		-input build/appicon.png \
 		-macfilename build/darwin/icons.icns \
 		-windowsfilename build/windows/icon.ico \

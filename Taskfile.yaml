@@ -6,6 +6,7 @@ vars:
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   APP_VERSION: '{{.APP_VERSION | default "dev"}}'
   WINDOWS_SYSO: wails_windows_amd64.syso
+  WAILS3: go tool wails3
 
 tasks:
   app:build:
@@ -24,7 +25,7 @@ tasks:
   generate:icons:
     summary: Generate platform icons from build/appicon.png.
     cmds:
-      - wails3 generate icons -input build/appicon.png -macfilename build/darwin/icons.icns -windowsfilename build/windows/icon.ico -macassetdir build/darwin
+      - "{{.WAILS3}} generate icons -input build/appicon.png -macfilename build/darwin/icons.icns -windowsfilename build/windows/icon.ico -macassetdir build/darwin"
 
   build:
     summary: Build the Miya Desktop spike binary.
@@ -39,7 +40,7 @@ tasks:
     cmds:
       - cd frontend && npm run build
       - mkdir -p {{.BIN_DIR}}
-      - wails3 generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out {{.WINDOWS_SYSO}}
+      - "{{.WAILS3}} generate syso -arch amd64 -icon build/windows/icon.ico -manifest build/windows/wails.exe.manifest -info build/windows/info.json -out {{.WINDOWS_SYSO}}"
       - GOOS=windows GOARCH=amd64 go build -ldflags "-X main.appVersion={{.APP_VERSION}} -H windowsgui" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe .
       - rm -f {{.WINDOWS_SYSO}}
 
@@ -79,4 +80,4 @@ tasks:
   dev:
     summary: Run the Wails v3 dev loop.
     cmds:
-      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+      - "{{.WAILS3}} dev -config ./build/config.yml -port {{.VITE_PORT}}"
