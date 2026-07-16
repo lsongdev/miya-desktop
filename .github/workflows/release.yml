@@ -24,7 +24,7 @@ jobs:
           echo "tag_name=$version" >> "$GITHUB_OUTPUT"
 
       - name: Delete existing release
-        run: gh release delete "${{ steps.version.outputs.tag_name }}" --yes --cleanup-tag || true
+        run: gh release delete "${{ steps.version.outputs.tag_name }}" --repo "${{ github.repository }}" --yes --cleanup-tag || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -152,6 +152,7 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
           name: Miya Desktop ${{ needs.prepare.outputs.version }}
           prerelease: true
+          fail_on_unmatched_files: true
           files: |
             macos-${{ needs.prepare.outputs.version }}/*
             windows-${{ needs.prepare.outputs.version }}/*
