@@ -157,9 +157,7 @@ func (m *Manager) connectEndpointLocked(endpoint miyaconfig.ACPAgentConfig) erro
 		return fmt.Errorf("agent: dial: %w", err)
 	}
 
-	client.OnNotification(func(method string, params json.RawMessage) {
-		m.handleNotification(method, params)
-	})
+	client.OnNotification(acp.NewNotificationHandler(&managerNotificationReceiver{manager: m}))
 
 	m.client = client
 	m.command = endpointCommand(endpoint)
@@ -175,32 +173,31 @@ func (m *Manager) Reconnect() error {
 	return m.reconnectLocked()
 }
 
-func (m *Manager) handleNotification(method string, params json.RawMessage) {
-	switch method {
-	case "session/update":
-		var envelope struct {
-			SessionID string          `json:"sessionId"`
-			Update    json.RawMessage `json:"update"`
-		}
-		if err := json.Unmarshal(params, &envelope); err != nil {
-			log.Printf("[agent] Failed to unmarshal session/update: %v", err)
-			return
-		}
-		event, err := acpadapter.ParseUpdate(envelope.Update)
-		if err != nil {
-			log.Printf("[agent] Failed to parse session/update: %v", err)
-			return
-		}
-		conversationID := m.scopedSessionID(envelope.SessionID)
-		m.store.RegisterSessionWithACP(conversationID, envelope.SessionID, "")
-		m.annotateModel(conversationID)
-		snapshot := m.store.ApplyACPEvent(conversationID, event)
-		m.emitEvent("session:update", map[string]any{
-			"sessionId": conversationID,
-			"event":     event,
-		})
-		m.emitEvent("conversation:update", snapshot)
+type managerNotificationReceiver struct {
+	acp.DefaultNotificationReceiver
+	manager *Manager
+}
+
+func (r *managerNotificationReceiver) SessionUpdate(notification *acp.SessionNotification) {
+	event, err := acpadapter.ParseSessionUpdate(notification.Update)
+	if err != nil {
+		log.Printf("[agent] Failed to parse session/update: %v", err)
+		return
 	}
+	sessionID := string(notification.SessionID)
+	conversationID := r.manager.scopedSessionID(sessionID)
+	r.manager.store.RegisterSessionWithACP(conversationID, sessionID, "")
+	r.manager.annotateModel(conversationID)
+	snapshot := r.manager.store.ApplyACPEvent(conversationID, event)
+	r.manager.emitEvent("session:update", map[string]any{
+		"sessionId": conversationID,
+		"event":     event,
+	})
+	r.manager.emitEvent("conversation:update", snapshot)
+}
+
+func (r *managerNotificationReceiver) InvalidNotification(method string, params json.RawMessage, err error) {
+	log.Printf("[agent] Failed to parse notification %s: %v", method, err)
 }
 
 // isConnectionError checks if the error indicates a dead connection.

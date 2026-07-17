@@ -196,6 +196,14 @@ func ParseUpdate(raw json.RawMessage) (*Event, error) {
 	return e, nil
 }
 
+func ParseSessionUpdate(update acp.SessionUpdate) (*Event, error) {
+	raw, err := json.Marshal(update)
+	if err != nil {
+		return nil, fmt.Errorf("marshal acp update: %w", err)
+	}
+	return ParseUpdate(raw)
+}
+
 func cloneRaw(raw json.RawMessage) json.RawMessage {
 	if raw == nil {
 		return nil
