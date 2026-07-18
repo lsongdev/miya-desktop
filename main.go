@@ -69,6 +69,7 @@ func main() {
 		window.Show()
 		window.Focus()
 		wailsApp.Event.Emit("app:window-shown")
+		wailsApp.Event.Emit("app:viewport-repair")
 	}
 	hideWindow := func() {
 		window.Hide()
@@ -83,6 +84,13 @@ func main() {
 		hideWindow()
 		e.Cancel()
 	})
+	repairViewport := func(e *application.WindowEvent) {
+		wailsApp.Event.Emit("app:viewport-repair")
+	}
+	window.RegisterHook(events.Common.WindowShow, repairViewport)
+	window.RegisterHook(events.Common.WindowUnMinimise, repairViewport)
+	window.RegisterHook(events.Common.WindowRestore, repairViewport)
+	window.RegisterHook(events.Common.WindowDPIChanged, repairViewport)
 
 	notificationService.OnNotificationResponse(func(result notifications.NotificationResult) {
 		if result.Error != nil {
