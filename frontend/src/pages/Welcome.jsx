@@ -1,78 +1,52 @@
 import { useState } from 'react'
-import { Bot, Check, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useMiyaConfig } from '@/context/MiyaConfigContext'
 import miyaIcon from '@/assets/images/miya-icon.png'
 
-const providerDefaults = {
-  openai: {
-    id: 'openai',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-5',
-  },
-  compatible: {
-    id: 'provider',
-    baseUrl: '',
-    model: '',
-  },
-}
-
-const validId = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
-
 export default function Welcome() {
-  const { path, saveConfig, saving, error } = useMiyaConfig()
-  const [providerKind, setProviderKind] = useState('openai')
-  const [providerId, setProviderId] = useState(providerDefaults.openai.id)
-  const [apiBase, setApiBase] = useState(providerDefaults.openai.baseUrl)
+  const { saveConfig, saving, error } = useMiyaConfig()
+  const [step, setStep] = useState(0)
+  const [providerName, setProviderName] = useState('openai')
+  const [apiBase, setApiBase] = useState('https://api.openai.com/v1')
   const [apiKey, setApiKey] = useState('')
-  const [profileId, setProfileId] = useState('default')
-  const [model, setModel] = useState(providerDefaults.openai.model)
-  const [workspace, setWorkspace] = useState('~/.miya/workspace')
+  const [model, setModel] = useState('gpt-5')
   const [formError, setFormError] = useState('')
 
-  const canSubmit = validId.test(providerId.trim()) && validId.test(profileId.trim()) && Boolean(model.trim())
+  const providerValid = Boolean(providerName.trim()) && Boolean(apiBase.trim())
+  const modelValid = Boolean(model.trim())
 
-  const selectProviderKind = (kind) => {
-    const defaults = providerDefaults[kind]
-    setProviderKind(kind)
-    setProviderId(defaults.id)
-    setApiBase(defaults.baseUrl)
-    setModel(defaults.model)
+  const next = (event) => {
+    event.preventDefault()
+    if (step === 1 && !providerValid) {
+      setFormError('Enter a valid provider name and URL.')
+      return
+    }
+    setFormError('')
+    setStep((current) => Math.min(current + 1, 2))
   }
 
   const initialize = async (event) => {
     event.preventDefault()
-    if (!canSubmit) {
-      setFormError('Provider and profile IDs may only contain letters, numbers, dots, underscores, and dashes.')
-      return
-    }
+    if (!providerValid || !modelValid) return
     setFormError('')
-    const normalizedProvider = providerId.trim()
-    const normalizedProfile = profileId.trim()
+    const providerID = providerName.trim()
     try {
       await saveConfig({
-        agents: [{
-          id: `miya-${normalizedProfile}`,
-          name: normalizedProfile === 'default' ? 'Miya Default' : normalizedProfile,
-          enabled: true,
-          type: 'builtin',
-          profile: normalizedProfile,
-          command: 'miya-agent',
-          args: ['acp'],
-        }],
+        agents: [],
         providers: {
-          [normalizedProvider]: {
+          [providerID]: {
             type: 'openai',
             apiKey: apiKey.trim(),
             apiBase: apiBase.trim(),
           },
         },
         profiles: {
-          [normalizedProfile]: {
-            provider: normalizedProvider,
+          default: {
+            provider: providerID,
             model: model.trim(),
-            workspace: workspace.trim(),
+            workspace: '~/.miya/workspace',
             maxTokens: 8192,
             contextWindowTokens: 128000,
             contextWarnRatio: 0.9,
@@ -90,107 +64,122 @@ export default function Welcome() {
 
   return (
     <main className="flex h-full min-h-0 w-full overflow-y-auto bg-background">
-      <div className="mx-auto flex w-full max-w-4xl flex-col justify-center px-6 py-8 lg:px-10">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="size-11 overflow-hidden rounded-lg bg-muted">
-            <img src={miyaIcon} alt="" className="size-full object-cover" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">Welcome to Miya</h1>
-            <p className="text-sm text-muted-foreground">Set up your first agent profile.</p>
-          </div>
-        </div>
-
-        <form onSubmit={initialize} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <section className="min-w-0 space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Provider</label>
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Provider type">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={providerKind === 'openai'}
-                  onClick={() => selectProviderKind('openai')}
-                  className={`rounded-md border px-3 py-2 text-left text-sm ${providerKind === 'openai' ? 'border-foreground bg-muted' : 'hover:bg-muted/50'}`}
-                >
-                  <span className="block font-medium">OpenAI</span>
-                  <span className="block text-xs text-muted-foreground">OpenAI API</span>
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={providerKind === 'compatible'}
-                  onClick={() => selectProviderKind('compatible')}
-                  className={`rounded-md border px-3 py-2 text-left text-sm ${providerKind === 'compatible' ? 'border-foreground bg-muted' : 'hover:bg-muted/50'}`}
-                >
-                  <span className="block font-medium">Compatible API</span>
-                  <span className="block text-xs text-muted-foreground">Custom OpenAI endpoint</span>
-                </button>
+      <div className="mx-auto flex w-full max-w-xl flex-col justify-center px-7 py-10">
+        {step === 0 ? (
+          <WelcomeStep onContinue={() => setStep(1)} />
+        ) : (
+          <form onSubmit={step === 1 ? next : initialize} className="w-full">
+            <div className="mb-10 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <img src={miyaIcon} alt="" className="size-8 rounded-md object-cover" />
+                <span className="text-sm font-semibold">Miya</span>
               </div>
+              <StepIndicator step={step} />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Provider ID">
-                <Input value={providerId} onChange={(event) => setProviderId(event.target.value)} placeholder="openai" pattern="[A-Za-z0-9][A-Za-z0-9._-]*" />
-              </Field>
-              <Field label="API key">
-                <Input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Optional for local endpoints" />
-              </Field>
-              <Field label="API base" className="sm:col-span-2">
-                <Input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="https://api.openai.com/v1" />
-              </Field>
-            </div>
+            {step === 1 ? (
+              <ProviderStep
+                providerName={providerName}
+                apiBase={apiBase}
+                apiKey={apiKey}
+                onProviderNameChange={setProviderName}
+                onApiBaseChange={setApiBase}
+                onApiKeyChange={setApiKey}
+              />
+            ) : (
+              <ModelStep model={model} providerName={providerName} onModelChange={setModel} />
+            )}
 
-            <div className="grid gap-4 border-t pt-5 sm:grid-cols-2">
-              <Field label="Profile ID">
-                <Input value={profileId} onChange={(event) => setProfileId(event.target.value)} placeholder="default" pattern="[A-Za-z0-9][A-Za-z0-9._-]*" />
-              </Field>
-              <Field label="Model">
-                <Input value={model} onChange={(event) => setModel(event.target.value)} placeholder="gpt-5" />
-              </Field>
-              <Field label="Workspace" className="sm:col-span-2">
-                <Input value={workspace} onChange={(event) => setWorkspace(event.target.value)} placeholder="~/.miya/workspace" />
-              </Field>
-            </div>
+            {(formError || error) && <p className="mt-5 text-sm text-destructive">{formError || error}</p>}
 
-            {(formError || error) && <p className="text-sm text-destructive">{formError || error}</p>}
-            <Button type="submit" disabled={!canSubmit || saving} className="min-w-36">
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Initialize Miya
-            </Button>
-          </section>
-
-          <aside className="border-l pl-6">
-            <h2 className="mb-3 text-sm font-semibold">Ready on first launch</h2>
-            <div className="space-y-3 text-sm">
-              <ReadyItem icon={Bot} title="Default profile" detail="Provider, model, and workspace" />
-              <ReadyItem icon={Check} title="Built-in skills" detail="Miya configuration skill included" />
-              <ReadyItem icon={Check} title="Private config" detail={path || '~/.miya/config.json'} />
+            <div className="mt-8 flex items-center justify-between border-t pt-5">
+              <Button type="button" variant="ghost" onClick={() => setStep((current) => current - 1)}>
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+              <Button type="submit" disabled={saving || (step === 1 ? !providerValid : !modelValid)}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : step === 1 ? <ArrowRight className="size-4" /> : <Check className="size-4" />}
+                {step === 1 ? 'Continue' : 'Start using Miya'}
+              </Button>
             </div>
-          </aside>
-        </form>
+          </form>
+        )}
       </div>
     </main>
   )
 }
 
-function Field({ label, className = '', children }) {
+function WelcomeStep({ onContinue }) {
   return (
-    <label className={`min-w-0 space-y-1.5 ${className}`}>
-      <span className="block text-sm font-medium">{label}</span>
-      {children}
-    </label>
+    <div className="flex flex-col items-center text-center">
+      <img src={miyaIcon} alt="" className="mb-7 size-20 rounded-xl object-cover shadow-sm" />
+      <h1 className="text-3xl font-semibold">Welcome to Miya</h1>
+      <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+        Connect your model provider and start your first conversation.
+      </p>
+      <Button size="lg" className="mt-8 min-w-36" onClick={onContinue}>
+        Get started
+        <ArrowRight className="size-4" />
+      </Button>
+    </div>
   )
 }
 
-function ReadyItem({ icon: Icon, title, detail }) {
+function ProviderStep({ providerName, apiBase, apiKey, onProviderNameChange, onApiBaseChange, onApiKeyChange }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0">
-        <p className="font-medium">{title}</p>
-        <p className="break-words text-xs text-muted-foreground">{detail}</p>
+    <section>
+      <p className="text-xs font-medium text-muted-foreground">Step 1 of 2</p>
+      <h1 className="mt-2 text-2xl font-semibold">Connect a provider</h1>
+      <div className="mt-7 space-y-5">
+        <Field label="Provider name">
+          <Input
+            value={providerName}
+            onChange={(event) => onProviderNameChange(event.target.value)}
+            placeholder="openai"
+            autoFocus
+          />
+        </Field>
+        <Field label="Base URL">
+          <Input value={apiBase} onChange={(event) => onApiBaseChange(event.target.value)} placeholder="https://api.openai.com/v1" />
+        </Field>
+        <Field label="API key">
+          <Input type="password" value={apiKey} onChange={(event) => onApiKeyChange(event.target.value)} placeholder="sk-..." />
+        </Field>
       </div>
+    </section>
+  )
+}
+
+function ModelStep({ model, providerName, onModelChange }) {
+  return (
+    <section>
+      <p className="text-xs font-medium text-muted-foreground">Step 2 of 2</p>
+      <h1 className="mt-2 text-2xl font-semibold">Choose your default model</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Provider: {providerName}</p>
+      <div className="mt-7">
+        <Field label="Model">
+          <Input value={model} onChange={(event) => onModelChange(event.target.value)} placeholder="gpt-5" autoFocus />
+        </Field>
+      </div>
+    </section>
+  )
+}
+
+function StepIndicator({ step }) {
+  return (
+    <div className="flex items-center gap-1.5" aria-label={`Step ${step} of 2`}>
+      {[1, 2].map((item) => (
+        <span key={item} className={`h-1.5 w-8 rounded-full ${item <= step ? 'bg-foreground' : 'bg-muted'}`} />
+      ))}
     </div>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="block text-sm font-medium">{label}</span>
+      {children}
+    </label>
   )
 }

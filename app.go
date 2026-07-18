@@ -310,7 +310,11 @@ func (a *App) ConnectConfiguredAgent(agentID string) error {
 	if err != nil {
 		return err
 	}
-	for _, endpoint := range cfg.Agents {
+	endpoints, err := miyaconfig.AgentEndpoints(cfg)
+	if err != nil {
+		return err
+	}
+	for _, endpoint := range endpoints {
 		if endpoint.ID == agentID {
 			if !endpoint.IsEnabled() {
 				return fmt.Errorf("agent %q is disabled", agentID)
@@ -382,7 +386,11 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 	}
 
 	var sessions []agent.Session
-	for _, endpoint := range cfg.Agents {
+	endpoints, err := miyaconfig.AgentEndpoints(cfg)
+	if err != nil {
+		return nil, err
+	}
+	for _, endpoint := range endpoints {
 		if !endpoint.IsEnabled() {
 			continue
 		}

@@ -51,3 +51,7 @@ func (s *Service) Save(cfg *Config) error {
 	}
 	return nil
 }
+
+func AgentEndpoints(cfg *Config) ([]ACPAgentConfig, error) {
+	return agentsconfig.AgentEndpoints(cfg)
+}

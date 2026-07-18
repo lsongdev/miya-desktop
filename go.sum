@@ -281,6 +281,10 @@ github.com/lsongdev/miya-agents v0.0.0-20260718141159-61c2a694d803 h1:kE8LZhWgwy
 github.com/lsongdev/miya-agents v0.0.0-20260718141159-61c2a694d803/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
 github.com/lsongdev/miya-agents v0.0.0-20260718142001-36c98647562b h1:oR+EWA+8RZtaOLV65ZQebO6kU4HBBXLvtO7cKZqVV6I=
 github.com/lsongdev/miya-agents v0.0.0-20260718142001-36c98647562b/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
+github.com/lsongdev/miya-agents v0.0.0-20260718145414-78f22640aded h1:SNjyZ+lIny2yQLxRPD9uijbXJNZ2jCor/4NjrOdF844=
+github.com/lsongdev/miya-agents v0.0.0-20260718145414-78f22640aded/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
+github.com/lsongdev/miya-agents v0.0.0-20260718145839-699fe3eca91c h1:TGSr7vGpCEU7BIe3oN54JamwAmu56SkjdocQbBwfBzc=
+github.com/lsongdev/miya-agents v0.0.0-20260718145839-699fe3eca91c/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
 github.com/lsongdev/miya-channels v0.0.0-20260716141519-127b1c7e7de7 h1:WXkqEogHQk6dn/TEMe+VlvOMJgO73VH6rGtcVMT3XoE=
 github.com/lsongdev/miya-channels v0.0.0-20260716141519-127b1c7e7de7/go.mod h1:y5vLH9x1fJ+Gc5Dv3KMd8pIkzPDH5ZFwX7SKbfZGsLE=
 github.com/lsongdev/miya-channels v0.0.0-20260716142145-83e93e389d53 h1:f/PA/0nAeAlA1m/eIr6G50o0MzgeS5eskQarV5/yi6Y=
@@ -295,6 +299,10 @@ github.com/lsongdev/miya-channels v0.0.0-20260718115524-e48524d9d8b4 h1:l9kHQPmz
 github.com/lsongdev/miya-channels v0.0.0-20260718115524-e48524d9d8b4/go.mod h1:b/adHPw57KRdkyxBTijli+MF/3DVYDstLIL2Ij7+g/o=
 github.com/lsongdev/miya-channels v0.0.0-20260718142728-2f9a0a9964b0 h1:tlOgZisndaoVRA2LI3KUa3jZj5Oljr+02A8YbvqcvPs=
 github.com/lsongdev/miya-channels v0.0.0-20260718142728-2f9a0a9964b0/go.mod h1:sjhTxyutHUPHNwW1YkyIpHa+YP7Yfh5LuQjyGmEUkA0=
+github.com/lsongdev/miya-channels v0.0.0-20260718145538-bed11544b1f3 h1:SVJZ5s6kgcAeil9mIfLpOWMXKJx+bbLkfRWlbP/J6UM=
+github.com/lsongdev/miya-channels v0.0.0-20260718145538-bed11544b1f3/go.mod h1:7hbcgjsO3vWUp5YRr5G3mXy+nUSsLIB6a9ky/yjiepo=
+github.com/lsongdev/miya-channels v0.0.0-20260718145945-0bc0414bec9f h1:oAm7XX/xwdQB0mDDOEallM9gDBeJ2H7k24JxTXMkwXs=
+github.com/lsongdev/miya-channels v0.0.0-20260718145945-0bc0414bec9f/go.mod h1:9JfrJ4QAtssk2tBI++ObJpSuJpXI0lC8d3d9tE8vNMg=
 github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9 h1:zq0rUkLB0Q2rf3ndw2HngNaupfS+Ev+Vgi5WWgeOIL8=
 github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9/go.mod h1:hzoU65fDr/n158bgVzT8a9SxNao6v9WFbCHkZpRMT9M=
 github.com/lsongdev/wechatbot-go v0.0.0-20260324073854-535a867c66ad h1:92LoyhkbfMW0B+tcvVqjchL/EertaS6jMJlcjsH2LIU=

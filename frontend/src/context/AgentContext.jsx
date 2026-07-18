@@ -39,14 +39,24 @@ export function AgentProvider({ children }) {
   const [error, setError] = useState(null)
 
   const agents = useMemo(() => {
-    const configured = Array.isArray(config.agents) ? config.agents : []
-    return configured
-      .filter((agent) => agent.enabled !== false)
-      .map((agent) => ({
-        ...normalizeAgent(agent),
-        model: agent.type === 'builtin' ? config.profiles?.[agent.profile]?.model || '' : '',
-      }))
-      .filter((agent) => agent.id && (agent.type === 'builtin' || agent.command))
+    const profiles = Object.entries(config.profiles || {}).sort(([left], [right]) => {
+      if (left === 'default') return -1
+      if (right === 'default') return 1
+      return left.localeCompare(right)
+    })
+    const builtinAgents = profiles.map(([id, profile]) => normalizeAgent({
+      id,
+      name: id,
+      type: 'builtin',
+      profile: id,
+      model: profile?.model || '',
+    }))
+    const profileIDs = new Set(profiles.map(([id]) => id))
+    const externalAgents = (Array.isArray(config.agents) ? config.agents : [])
+      .filter((agent) => agent.enabled !== false && agent.type !== 'builtin')
+      .map(normalizeAgent)
+      .filter((agent) => agent.id && agent.command && !profileIDs.has(agent.id))
+    return [...builtinAgents, ...externalAgents]
   }, [config.agents, config.profiles])
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null

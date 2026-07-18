@@ -24,7 +24,6 @@ export class ACPAgentConfig {
      * builtin, stdio (default), http, or sse
      */
     "type"?: string;
-    "profile"?: string;
     "command"?: string;
     "args"?: string[];
     "url"?: string;
@@ -43,14 +42,14 @@ export class ACPAgentConfig {
      * Creates a new ACPAgentConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): ACPAgentConfig {
-        const $$createField6_0 = $$createType0;
-        const $$createField8_0 = $$createType1;
+        const $$createField5_0 = $$createType0;
+        const $$createField7_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
-            $$parsedSource["args"] = $$createField6_0($$parsedSource["args"]);
+            $$parsedSource["args"] = $$createField5_0($$parsedSource["args"]);
         }
         if ("headers" in $$parsedSource) {
-            $$parsedSource["headers"] = $$createField8_0($$parsedSource["headers"]);
+            $$parsedSource["headers"] = $$createField7_0($$parsedSource["headers"]);
         }
         return new ACPAgentConfig($$parsedSource as Partial<ACPAgentConfig>);
     }
