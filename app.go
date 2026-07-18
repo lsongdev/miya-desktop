@@ -576,6 +576,14 @@ func (a *App) FetchProviderModels(providerID string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("provider %q not found", providerID)
 	}
+	return fetchProviderModels(providerID, provider)
+}
+
+func (a *App) FetchProviderModelsFromConfig(providerID string, provider miyaconfig.ProviderConfig) ([]string, error) {
+	return fetchProviderModels(providerID, &provider)
+}
+
+func fetchProviderModels(providerID string, provider *miyaconfig.ProviderConfig) ([]string, error) {
 	if strings.TrimSpace(provider.APIKey) == "" {
 		return nil, fmt.Errorf("provider %q has no API key", providerID)
 	}

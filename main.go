@@ -4,7 +4,9 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/lsongdev/miya-agents/logging"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -69,7 +71,6 @@ func main() {
 		window.Show()
 		window.Focus()
 		wailsApp.Event.Emit("app:window-shown")
-		wailsApp.Event.Emit("app:viewport-repair")
 	}
 	hideWindow := func() {
 		window.Hide()
@@ -84,13 +85,17 @@ func main() {
 		hideWindow()
 		e.Cancel()
 	})
-	repairViewport := func(e *application.WindowEvent) {
-		wailsApp.Event.Emit("app:viewport-repair")
+	repairWindowsWebview := func(e *application.WindowEvent) {
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			window.ZoomReset()
+			width, height := window.Size()
+			window.SetSize(width, height)
+		}()
 	}
-	window.RegisterHook(events.Common.WindowShow, repairViewport)
-	window.RegisterHook(events.Common.WindowUnMinimise, repairViewport)
-	window.RegisterHook(events.Common.WindowRestore, repairViewport)
-	window.RegisterHook(events.Common.WindowDPIChanged, repairViewport)
+	if runtime.GOOS == "windows" {
+		window.RegisterHook(events.Common.WindowUnMinimise, repairWindowsWebview)
+	}
 
 	notificationService.OnNotificationResponse(func(result notifications.NotificationResult) {
 		if result.Error != nil {

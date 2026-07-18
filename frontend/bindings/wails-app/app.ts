@@ -86,6 +86,12 @@ export function FetchProviderModels(providerID: string): $CancellablePromise<str
     });
 }
 
+export function FetchProviderModelsFromConfig(providerID: string, provider: config$0.ProviderConfig): $CancellablePromise<string[]> {
+    return $Call.ByID(734328434, providerID, provider).then(($result: any) => {
+        return $$createType5($result);
+    });
+}
+
 export function GetConversation(sessionID: string): $CancellablePromise<agent$0.Conversation | null> {
     return $Call.ByID(2657599328, sessionID).then(($result: any) => {
         return $$createType7($result);

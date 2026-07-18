@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Events } from '@wailsio/runtime'
+import { useCallback, useState } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -29,23 +28,6 @@ const pageComponents = {
   chat: Chat,
   settings: Settings,
 };
-
-function updateViewportHeight() {
-  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
-}
-
-function repairViewport() {
-  const viewport = document.querySelector('meta[name="viewport"]')
-  viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0')
-  document.documentElement.style.zoom = ''
-  document.body.style.zoom = ''
-  updateViewportHeight()
-  window.dispatchEvent(new Event('resize'))
-  requestAnimationFrame(() => {
-    updateViewportHeight()
-    window.dispatchEvent(new Event('resize'))
-  })
-}
 
 function AppSidebar({ activePage, onNavigate }) {
   return (
@@ -128,21 +110,6 @@ function DesktopApp() {
 
 function ConfigGate() {
   const { exists, loading } = useMiyaConfig()
-  useEffect(() => {
-    repairViewport()
-    const cleanup = Events.On('app:viewport-repair', () => {
-      repairViewport()
-      window.setTimeout(repairViewport, 100)
-    })
-    window.addEventListener('resize', updateViewportHeight)
-    window.visualViewport?.addEventListener('resize', updateViewportHeight)
-    return () => {
-      cleanup()
-      window.removeEventListener('resize', updateViewportHeight)
-      window.visualViewport?.removeEventListener('resize', updateViewportHeight)
-    }
-  }, [])
-
   if (loading) {
     return (
       <div className="flex h-full w-full items-center justify-center text-muted-foreground">

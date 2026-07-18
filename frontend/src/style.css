@@ -125,7 +125,7 @@
     @apply bg-background text-foreground;
     }
   html, body, #root {
-    height: var(--app-height, 100dvh);
+    height: 100dvh;
     overflow: hidden;
     }
   #root {

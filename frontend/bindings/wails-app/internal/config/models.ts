@@ -11,3 +11,6 @@ import * as config$0 from "../../../github.com/lsongdev/miya-agents/config/model
 
 export const Config = config$0.Config;
 export type Config = config$0.Config;
+
+export const ProviderConfig = config$0.ProviderConfig;
+export type ProviderConfig = config$0.ProviderConfig;

@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useMiyaConfig } from '@/context/MiyaConfigContext'
+import { FetchProviderModelsFromConfig } from '../../bindings/wails-app/app'
 import miyaIcon from '@/assets/images/miya-icon.png'
 
 export default function Welcome() {
@@ -87,7 +88,13 @@ export default function Welcome() {
                 onApiKeyChange={setApiKey}
               />
             ) : (
-              <ModelStep model={model} providerName={providerName} onModelChange={setModel} />
+              <ModelStep
+                model={model}
+                providerName={providerName}
+                apiBase={apiBase}
+                apiKey={apiKey}
+                onModelChange={setModel}
+              />
             )}
 
             {(formError || error) && <p className="mt-5 text-sm text-destructive">{formError || error}</p>}
@@ -150,7 +157,36 @@ function ProviderStep({ providerName, apiBase, apiKey, onProviderNameChange, onA
   )
 }
 
-function ModelStep({ model, providerName, onModelChange }) {
+function ModelStep({ model, providerName, apiBase, apiKey, onModelChange }) {
+  const [modelOptions, setModelOptions] = useState([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState('')
+
+  const fetchModels = useCallback(async () => {
+    if (!apiKey.trim()) {
+      setModelsError('Enter an API key to fetch available models, or type a model name.')
+      return
+    }
+    setModelsLoading(true)
+    setModelsError('')
+    try {
+      const models = await FetchProviderModelsFromConfig(providerName.trim(), {
+        type: 'openai',
+        apiKey: apiKey.trim(),
+        apiBase: apiBase.trim(),
+      })
+      setModelOptions(models || [])
+    } catch (err) {
+      setModelsError(err?.toString?.() || String(err))
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [apiBase, apiKey, providerName])
+
+  useEffect(() => {
+    fetchModels()
+  }, [fetchModels])
+
   return (
     <section>
       <p className="text-xs font-medium text-muted-foreground">Step 2 of 2</p>
@@ -158,7 +194,23 @@ function ModelStep({ model, providerName, onModelChange }) {
       <p className="mt-2 text-sm text-muted-foreground">Provider: {providerName}</p>
       <div className="mt-7">
         <Field label="Model">
-          <Input value={model} onChange={(event) => onModelChange(event.target.value)} placeholder="gpt-5" autoFocus />
+          <div className="flex gap-2">
+            <Input
+              list="welcome-model-options"
+              value={model}
+              onChange={(event) => onModelChange(event.target.value)}
+              placeholder="Select or enter a model"
+              autoFocus
+            />
+            <Button type="button" variant="outline" size="icon" onClick={fetchModels} disabled={modelsLoading} title="Refresh models">
+              {modelsLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              <span className="sr-only">Refresh models</span>
+            </Button>
+          </div>
+          <datalist id="welcome-model-options">
+            {modelOptions.map((option) => <option key={option} value={option} />)}
+          </datalist>
+          {modelsError && <p className="text-xs text-destructive">{modelsError}</p>}
         </Field>
       </div>
     </section>
