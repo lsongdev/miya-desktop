@@ -120,11 +120,14 @@ Channels config belongs to `miya-channels`, but Desktop should be able to edit a
 
 ```json
 {
-  "channels": {
-    "telegram": {
-      "token": "..."
+  "channels": [
+    {
+      "id": "tg-personal",
+      "type": "telegram",
+      "agent": "miya",
+      "config": { "token": "..." }
     }
-  }
+  ]
 }
 ```
 
@@ -134,6 +137,8 @@ Desktop integration should eventually support:
 - channel status
 - start/stop `miya-channels`
 - inspect remote conversations
+
+The channel object form is invalid and is not migrated by Desktop.
 
 TODO: `channelsEnabled` is currently stored in shared `~/.miya/config.json`, but it is a Desktop-local preference for whether Desktop should run the channel service. Move it to a Desktop-owned local preference store once that exists.
 

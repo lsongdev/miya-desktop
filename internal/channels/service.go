@@ -13,10 +13,12 @@ import (
 	"github.com/lsongdev/miya-agents/acp"
 	channelapp "github.com/lsongdev/miya-channels/app"
 	channelpkg "github.com/lsongdev/miya-channels/channels"
+	channelconfig "github.com/lsongdev/miya-channels/config"
 )
 
 type ChannelEvent struct {
 	Channel     string `json:"channel"`
+	ChannelType string `json:"channelType,omitempty"`
 	Type        string `json:"type"`
 	Status      string `json:"status,omitempty"`
 	QRCode      string `json:"qrcode,omitempty"`
@@ -74,6 +76,12 @@ func (s *Service) Start(ctx context.Context) (Status, error) {
 		s.status = Status{Error: err.Error()}
 		return s.status, err
 	}
+	instances, err := channelconfig.ChannelInstances(cfg)
+	if err != nil {
+		cancel()
+		s.status = Status{Error: err.Error()}
+		return s.status, fmt.Errorf("load channel instances: %w", err)
+	}
 	done := make(chan error, 1)
 	s.cancel = cancel
 	s.done = done
@@ -83,7 +91,7 @@ func (s *Service) Start(ctx context.Context) (Status, error) {
 		ChannelEvents: map[string]ChannelEvent{},
 	}
 
-	go s.run(runCtx, cfg, done)
+	go s.run(runCtx, cfg, instances, done)
 	return s.status, nil
 }
 
@@ -117,11 +125,12 @@ func (s *Service) Stop() (Status, error) {
 	return status, nil
 }
 
-func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- error) {
+func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, instances []channelconfig.ChannelInstance, done chan<- error) {
 	err := channelapp.Run(ctx, channelapp.Options{
-		Config: cfg,
-		NewClient: func(cfg *miyaconfig.Config) (*acp.Client, string, error) {
-			return firstAvailableAgentClient(cfg, s.loadConfig)
+		Config:   cfg,
+		Channels: instances,
+		NewAgentClient: func(_ *miyaconfig.Config, endpoint miyaconfig.ACPAgentConfig) (*acp.Client, error) {
+			return agentclient.NewForEndpoint(endpoint, s.loadConfig)
 		},
 		OnEvent: s.handleChannelEvent,
 	})
@@ -145,6 +154,7 @@ func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, done chan<- e
 func (s *Service) handleChannelEvent(event channelpkg.ChannelEvent) {
 	next := ChannelEvent{
 		Channel:     event.Channel,
+		ChannelType: event.ChannelType,
 		Type:        event.Type,
 		Status:      event.Status,
 		QRCode:      event.QRCode,
@@ -159,34 +169,4 @@ func (s *Service) handleChannelEvent(event channelpkg.ChannelEvent) {
 	s.status.ChannelEvents[next.Channel] = next
 	s.mu.Unlock()
 	s.emit("channel:event", next)
-}
-
-func firstAvailableAgentClient(cfg *miyaconfig.Config, loadConfig agentclient.ConfigLoader) (*acp.Client, string, error) {
-	var lastErr error
-	endpoints := append([]miyaconfig.ACPAgentConfig{{
-		ID:      "miya",
-		Name:    "Miya Agents",
-		Enabled: boolPtr(true),
-		Type:    "builtin",
-		Command: "miya-agent",
-		Args:    []string{"acp"},
-	}}, cfg.Agents...)
-	for _, endpoint := range endpoints {
-		if !endpoint.IsEnabled() {
-			continue
-		}
-		client, err := agentclient.NewForEndpoint(endpoint, loadConfig)
-		if err == nil {
-			return client, endpoint.ID, nil
-		}
-		lastErr = err
-	}
-	if lastErr != nil {
-		return nil, "", fmt.Errorf("no enabled ACP agent could be connected: %w", lastErr)
-	}
-	return nil, "", fmt.Errorf("no enabled ACP agent configured")
-}
-
-func boolPtr(v bool) *bool {
-	return &v
 }

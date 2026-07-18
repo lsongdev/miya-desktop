@@ -8,7 +8,7 @@ const emptyConfig = {
   profiles: {},
   providers: {},
   mcpServers: {},
-  channels: {},
+  channels: [],
 }
 
 function normalizeConfig(config) {
@@ -19,7 +19,7 @@ function normalizeConfig(config) {
     profiles: config?.profiles || {},
     providers: config?.providers || {},
     mcpServers: config?.mcpServers || {},
-    channels: config?.channels || {},
+    channels: Array.isArray(config?.channels) ? config.channels : [],
   }
 }
 

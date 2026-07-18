@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -243,6 +243,55 @@ function MessageBlock({ block, role, streaming }) {
   )
 }
 
+const MessageRow = memo(function MessageRow({ message }) {
+  return (
+    <div
+      className={`flex gap-3 min-w-0 [content-visibility:auto] [contain-intrinsic-size:auto_80px] ${
+        message.role === 'user' ? 'flex-row-reverse' : ''
+      }`}
+    >
+      <div
+        className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
+          message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+        }`}
+      >
+        {message.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
+      </div>
+
+      <div className={`flex-1 min-w-0 flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+        {message.blocks?.map((block, blockIndex) => (
+          <MessageBlock
+            key={block.id}
+            block={block}
+            role={message.role}
+            streaming={message.status === 'streaming' && blockIndex === message.blocks.length - 1}
+          />
+        ))}
+      </div>
+    </div>
+  )
+})
+
+function reconcileConversation(previous, next) {
+  if (!previous || previous.id !== next.id) return next
+
+  const previousMessages = new Map(previous.messages?.map((message) => [message.id, message]) || [])
+  const messages = (next.messages || []).map((message) => {
+    const cached = previousMessages.get(message.id)
+    if (
+      cached &&
+      cached.updatedAt === message.updatedAt &&
+      cached.status === message.status &&
+      cached.blocks?.length === message.blocks?.length
+    ) {
+      return cached
+    }
+    return message
+  })
+
+  return { ...next, messages }
+}
+
 function usageLabel(usage) {
   if (!usage?.size) return null
   const percent = Math.round((Number(usage.used || 0) / Number(usage.size)) * 100)
@@ -260,9 +309,12 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [stopReason, setStopReason] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const loadedRef = useRef(false)
   const inputRef = useRef(null)
+  const pendingConversationRef = useRef(null)
+  const conversationTimerRef = useRef(null)
+  const followOutputRef = useRef(true)
 
   useEffect(() => {
     let cancelled = false
@@ -271,7 +323,9 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
       let existing = null
       try {
         existing = await GetConversation(sessionId)
-        if (!cancelled && existing) setConversation(existing)
+        if (!cancelled && existing) {
+          setConversation((previous) => reconcileConversation(previous, existing))
+        }
       } catch {
         existing = null
       }
@@ -305,21 +359,37 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     }
   }, [shouldLoad, sessionId, session?.cwd, onLoadComplete])
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    followOutputRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96
   }, [])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [conversation?.messages, scrollToBottom])
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container || !followOutputRef.current) return
+    container.scrollTop = container.scrollHeight
+  }, [conversation?.messages])
 
   useEffect(() => {
+    const flushConversation = () => {
+      conversationTimerRef.current = null
+      const next = pendingConversationRef.current
+      pendingConversationRef.current = null
+      if (next) {
+        setConversation((previous) => reconcileConversation(previous, next))
+      }
+    }
+
     const cleanup = Events.On('conversation:update', (event) => {
       try {
         const snapshot = event?.data ?? event
         const next = snapshot?.conversation
         if (next?.id !== sessionId && next?.acpSessionId !== sessionId) return
-        setConversation(next)
+        pendingConversationRef.current = next
+        if (conversationTimerRef.current === null) {
+          conversationTimerRef.current = window.setTimeout(flushConversation, 50)
+        }
         if (snapshot.stopReason) setStopReason(snapshot.stopReason)
       } catch (err) {
         console.error('Failed to handle conversation update', err)
@@ -328,6 +398,11 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
     return () => {
       cleanup()
+      if (conversationTimerRef.current !== null) {
+        window.clearTimeout(conversationTimerRef.current)
+        conversationTimerRef.current = null
+      }
+      pendingConversationRef.current = null
     }
   }, [sessionId])
 
@@ -379,7 +454,11 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
-      <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 mb-4 min-h-0 min-w-0 pr-1">
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 mb-4 min-h-0 min-w-0 pr-1"
+      >
         {loading && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Loader2 className="size-6 mb-2 animate-spin" />
@@ -393,29 +472,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 min-w-0 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div
-              className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
-                msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {msg.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
-            </div>
-
-            <div className={`flex-1 min-w-0 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-              {msg.blocks?.map((block, blockIndex) => (
-                <MessageBlock
-                  key={block.id}
-                  block={block}
-                  role={msg.role}
-                  streaming={msg.status === 'streaming' && blockIndex === msg.blocks.length - 1}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+        {messages.map((message) => <MessageRow key={message.id} message={message} />)}
       </div>
 
       {stopReason && (

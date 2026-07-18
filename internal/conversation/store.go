@@ -33,14 +33,26 @@ func (s *Store) RegisterSessionWithACP(conversationID, acpSessionID, cwd string)
 	defer s.mu.Unlock()
 
 	conv := s.ensureConversationLocked(conversationID)
+	s.updateSessionMetadataLocked(conv, acpSessionID, cwd)
+	conv.UpdatedAt = s.nowString()
+	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_registered"}
+}
+
+func (s *Store) EnsureSessionWithACP(conversationID, acpSessionID, cwd string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	conv := s.ensureConversationLocked(conversationID)
+	s.updateSessionMetadataLocked(conv, acpSessionID, cwd)
+}
+
+func (s *Store) updateSessionMetadataLocked(conv *Conversation, acpSessionID, cwd string) {
 	if acpSessionID != "" {
 		conv.ACPSessionID = acpSessionID
 	}
 	if cwd != "" {
 		conv.Cwd = cwd
 	}
-	conv.UpdatedAt = s.nowString()
-	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_registered"}
 }
 
 func (s *Store) SetModel(sessionID, model string) (Snapshot, bool) {
@@ -51,10 +63,11 @@ func (s *Store) SetModel(sessionID, model string) (Snapshot, bool) {
 	if !ok {
 		return Snapshot{}, false
 	}
-	if model != "" {
-		conv.Model = model
-		conv.UpdatedAt = s.nowString()
+	if model == "" || conv.Model == model {
+		return Snapshot{}, false
 	}
+	conv.Model = model
+	conv.UpdatedAt = s.nowString()
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "conversation_model"}, true
 }
 

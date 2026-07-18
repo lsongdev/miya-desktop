@@ -405,7 +405,7 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 		if !endpoint.IsEnabled() {
 			continue
 		}
-		if endpoint.Type != "builtin" && endpoint.Type != "inprocess" && strings.TrimSpace(endpoint.Command) == "" {
+		if endpoint.Type != "builtin" && strings.TrimSpace(endpoint.Command) == "" {
 			continue
 		}
 

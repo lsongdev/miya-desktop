@@ -34,7 +34,7 @@ func NewForEndpoint(endpoint miyaconfig.ACPAgentConfig, loadConfig ConfigLoader)
 		}
 		return NewBuiltin(cfg), nil
 	}
-	if endpoint.Type != "" && endpoint.Type != "stdio" {
+	if endpoint.Type != "stdio" {
 		return nil, fmt.Errorf("agent: unsupported ACP agent type: %s", endpoint.Type)
 	}
 	if strings.TrimSpace(endpoint.Command) == "" {
@@ -52,5 +52,5 @@ func IsBuiltinEndpoint(endpoint miyaconfig.ACPAgentConfig) bool {
 }
 
 func isBuiltin(endpoint miyaconfig.ACPAgentConfig) bool {
-	return endpoint.Type == "builtin" || endpoint.Type == "inprocess"
+	return endpoint.Type == "builtin"
 }

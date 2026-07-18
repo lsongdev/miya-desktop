@@ -96,6 +96,19 @@ func TestStoreHasMessages(t *testing.T) {
 	}
 }
 
+func TestStoreSetModelOnlySnapshotsChanges(t *testing.T) {
+	store := testStore()
+	store.RegisterSession("s1", "")
+
+	snapshot, changed := store.SetModel("s1", "model-a")
+	if !changed || snapshot.Conversation.Model != "model-a" {
+		t.Fatalf("first SetModel = (%q, %v)", snapshot.Conversation.Model, changed)
+	}
+	if _, changed := store.SetModel("s1", "model-a"); changed {
+		t.Fatal("unchanged model should not produce a snapshot")
+	}
+}
+
 func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	store := testStore()
 

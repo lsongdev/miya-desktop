@@ -112,13 +112,14 @@ function rawToText(value) {
 }
 
 function channelSummary(channel) {
-  if (channel.id === 'telegram') {
-    return channel.token ? 'bot token configured' : 'bot token missing'
+  const value = channel.config || {}
+  if (channel.type === 'telegram') {
+    return value.token ? 'bot token configured' : 'bot token missing'
   }
-  if (channel.id === 'wechat') {
-    return channel.token ? 'authenticated' : 'scan required'
+  if (channel.type === 'wechat') {
+    return value.token ? 'authenticated' : 'scan required'
   }
-  return rawToText(channel).replace(/\s+/g, ' ')
+  return rawToText(value).replace(/\s+/g, ' ')
 }
 
 function eventPayload(event) {
@@ -849,7 +850,7 @@ function SkillsSettings() {
 
 function ChannelsSettings() {
   const { config, saveConfig, saving, error } = useMiyaConfig()
-  const channels = entriesOf(config.channels)
+  const channels = Array.isArray(config.channels) ? config.channels : []
   // TODO: Move this desktop-local preference out of shared ~/.miya/config.json.
   const channelsEnabled = config.channelsEnabled !== false
   const [editing, setEditing] = useState(null)
@@ -858,7 +859,7 @@ function ChannelsSettings() {
   const [service, setService] = useState({ running: false })
   const [serviceBusy, setServiceBusy] = useState(false)
   const [loginBusy, setLoginBusy] = useState(false)
-  const [form, setForm] = useState({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
+  const [form, setForm] = useState({ instanceId: 'telegram', type: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
   const wechatLoginStartedRef = useRef(false)
 
   useEffect(() => {
@@ -903,7 +904,7 @@ function ChannelsSettings() {
           wechatLoginStartedRef.current = false
           setForm((prev) => ({
             ...prev,
-            id: 'wechat',
+            type: 'wechat',
             token: payload.token || prev.token,
             baseUrl: payload.baseUrl || prev.baseUrl,
             cdnBaseUrl: payload.cdnBaseUrl || prev.cdnBaseUrl,
@@ -922,7 +923,7 @@ function ChannelsSettings() {
 
   const reset = () => {
     wechatLoginStartedRef.current = false
-    setForm({ id: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
+    setForm({ instanceId: 'telegram', type: 'telegram', token: '', baseUrl: '', cdnBaseUrl: '', json: '{}' })
     setLocalError(null)
   }
   const startAdd = () => { setAdding(true); setEditing(null); reset() }
@@ -930,9 +931,10 @@ function ChannelsSettings() {
     setAdding(false)
     setEditing(channel.id)
     setLocalError(null)
-    const { id, ...value } = channel
+    const value = channel.config || {}
     setForm({
-      id,
+      instanceId: channel.id,
+      type: channel.type,
       token: value.token || '',
       baseUrl: value.base_url || '',
       cdnBaseUrl: value.cdn_base_url || '',
@@ -965,13 +967,18 @@ function ChannelsSettings() {
     }
   }
   const handleSave = async () => {
-    const id = form.id.trim()
-    if (!id) return
+    const instanceId = form.instanceId.trim()
+    const type = form.type.trim()
+    if (!instanceId || !type) return
+    if (channels.some((channel) => channel.id === instanceId && channel.id !== editing)) {
+      setLocalError(`Channel instance already exists: ${instanceId}`)
+      return
+    }
     let value
-    if (id === 'telegram') {
+    if (type === 'telegram') {
       if (!form.token.trim()) return
       value = { token: form.token.trim() }
-    } else if (id === 'wechat') {
+    } else if (type === 'wechat') {
       value = {}
       if (form.token.trim()) value.token = form.token.trim()
       if (form.baseUrl.trim()) value.base_url = form.baseUrl.trim()
@@ -985,10 +992,12 @@ function ChannelsSettings() {
       }
     }
     await saveConfig((prev) => {
-      const channels = { ...(prev.channels || {}) }
-      if (editing && editing !== id) delete channels[editing]
-      channels[id] = value
-      return { ...prev, channels }
+      const current = Array.isArray(prev.channels) ? prev.channels : []
+      const existing = current.find((channel) => channel.id === editing)
+      const instance = { ...(existing || {}), id: instanceId, type, config: value }
+      const nextChannels = current.filter((channel) => channel.id !== editing)
+      nextChannels.push(instance)
+      return { ...prev, channels: nextChannels }
     })
     try {
       await restartServiceIfRunning()
@@ -1018,23 +1027,22 @@ function ChannelsSettings() {
     }
   }
 
-  const wechatEvent = service?.channelEvents?.wechat
-  const wechatAuthenticated = form.id === 'wechat' && Boolean(form.token || wechatEvent?.status === 'authenticated')
+  const wechatEvent = service?.channelEvents?.[form.instanceId] || service?.channelEvents?.wechat
+  const wechatAuthenticated = form.type === 'wechat' && Boolean(form.token || wechatEvent?.status === 'authenticated')
 
   useEffect(() => {
-    if (form.id !== 'wechat') {
+    if (form.type !== 'wechat') {
       wechatLoginStartedRef.current = false
       return
     }
     if (!adding || form.token || loginBusy || wechatLoginStartedRef.current) return
     wechatLoginStartedRef.current = true
     startWeChatLogin(wechatValueFromForm(form))
-  }, [adding, form.id, form.token, form.baseUrl, form.cdnBaseUrl, loginBusy])
+  }, [adding, form.instanceId, form.type, form.token, form.baseUrl, form.cdnBaseUrl, loginBusy])
 
   const handleDelete = async (id) => {
     await saveConfig((prev) => {
-      const channels = { ...(prev.channels || {}) }
-      delete channels[id]
+      const channels = (Array.isArray(prev.channels) ? prev.channels : []).filter((channel) => channel.id !== id)
       return { ...prev, channels }
     })
     try {
@@ -1063,18 +1071,19 @@ function ChannelsSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <select value={form.id} onChange={(e) => {
-        const id = e.target.value
-        if (id !== 'wechat') wechatLoginStartedRef.current = false
-        setForm((f) => ({ ...f, id }))
-      }} className={selectClass} autoFocus>
+      <Input value={form.instanceId} onChange={(e) => setForm((f) => ({ ...f, instanceId: e.target.value }))} placeholder="Instance ID" className={monoInputClass} autoFocus />
+      <select value={form.type} onChange={(e) => {
+        const type = e.target.value
+        if (type !== 'wechat') wechatLoginStartedRef.current = false
+        setForm((f) => ({ ...f, type }))
+      }} className={selectClass}>
         {channelTypes.map((channel) => (
           <option key={channel.id} value={channel.id}>{channel.label}</option>
         ))}
       </select>
-      {form.id === 'telegram' ? (
+      {form.type === 'telegram' ? (
         <Input value={form.token} onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))} placeholder="Bot token" type="password" className={monoInputClass} />
-      ) : form.id === 'wechat' ? (
+      ) : form.type === 'wechat' ? (
         <div className="space-y-2">
           <Input value={form.token} onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))} placeholder="Token (optional, filled after QR login)" type="password" className={monoInputClass} />
           <Input value={form.baseUrl} onChange={(e) => setForm((f) => ({ ...f, baseUrl: e.target.value }))} placeholder="Base URL (optional)" className={monoInputClass} />
@@ -1115,7 +1124,7 @@ function ChannelsSettings() {
         <textarea value={form.json} onChange={(e) => setForm((f) => ({ ...f, json: e.target.value }))} placeholder="Channel JSON config" className="min-h-48 w-full rounded-md border bg-transparent px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring" />
       )}
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || (form.id === 'telegram' && !form.token.trim()) || saving}>
+        <Button size="sm" onClick={handleSave} disabled={!form.instanceId.trim() || !form.type.trim() || (form.type === 'telegram' && !form.token.trim()) || saving}>
           <Check className="size-3.5 mr-1" /> Save
         </Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
@@ -1166,7 +1175,7 @@ function ChannelsSettings() {
             {editing === channel.id ? editor : (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm">{channel.id}</p>
+                  <p className="font-medium text-sm">{channel.id} <span className="font-normal text-muted-foreground">{channel.type}</span></p>
                   <p className="text-xs text-muted-foreground font-mono truncate">{channelSummary(channel)}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 ml-2">

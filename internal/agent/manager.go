@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"wails-app/internal/acpadapter"
 	"wails-app/internal/agentclient"
@@ -40,30 +41,52 @@ type UpdateEvent = acpadapter.Event
 type Conversation = conversation.Conversation
 
 type Manager struct {
-	client     *acp.Client
-	ctx        context.Context
-	loadConfig agentclient.ConfigLoader
-	mu         sync.Mutex
-	agentInfo  *AgentInfo
-	command    string
-	endpoint   *miyaconfig.ACPAgentConfig
-	initName   string
-	initVer    string
-	store      *conversation.Store
-	emit       EventEmitter
+	client               *acp.Client
+	ctx                  context.Context
+	loadConfig           agentclient.ConfigLoader
+	mu                   sync.Mutex
+	agentInfo            *AgentInfo
+	command              string
+	endpoint             *miyaconfig.ACPAgentConfig
+	initName             string
+	initVer              string
+	store                *conversation.Store
+	emit                 EventEmitter
+	conversationEmitMu   sync.Mutex
+	lastConversationEmit map[string]time.Time
 }
 
 func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmitter) *Manager {
 	if emit == nil {
 		emit = func(string, ...any) {}
 	}
-	return &Manager{ctx: ctx, loadConfig: loadConfig, store: conversation.NewStore(), emit: emit}
+	return &Manager{
+		ctx:                  ctx,
+		loadConfig:           loadConfig,
+		store:                conversation.NewStore(),
+		emit:                 emit,
+		lastConversationEmit: make(map[string]time.Time),
+	}
 }
 
 func (m *Manager) emitEvent(name string, data any) {
 	if m.emit != nil {
 		m.emit(name, data)
 	}
+}
+
+func (m *Manager) shouldEmitConversationUpdate(sessionID string) bool {
+	const minInterval = 50 * time.Millisecond
+
+	m.conversationEmitMu.Lock()
+	defer m.conversationEmitMu.Unlock()
+
+	now := time.Now()
+	if now.Sub(m.lastConversationEmit[sessionID]) < minInterval {
+		return false
+	}
+	m.lastConversationEmit[sessionID] = now
+	return true
 }
 
 func (m *Manager) currentAgentID() string {
@@ -186,14 +209,15 @@ func (r *managerNotificationReceiver) SessionUpdate(notification *acp.SessionNot
 	}
 	sessionID := string(notification.SessionID)
 	conversationID := r.manager.scopedSessionID(sessionID)
-	r.manager.store.RegisterSessionWithACP(conversationID, sessionID, "")
-	r.manager.annotateModel(conversationID)
+	r.manager.store.EnsureSessionWithACP(conversationID, sessionID, "")
 	snapshot := r.manager.store.ApplyACPEvent(conversationID, event)
 	r.manager.emitEvent("session:update", map[string]any{
 		"sessionId": conversationID,
 		"event":     event,
 	})
-	r.manager.emitEvent("conversation:update", snapshot)
+	if r.manager.shouldEmitConversationUpdate(conversationID) {
+		r.manager.emitEvent("conversation:update", snapshot)
+	}
 }
 
 func (r *managerNotificationReceiver) InvalidNotification(method string, params json.RawMessage, err error) {

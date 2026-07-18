@@ -80,7 +80,8 @@ export default function useDesktopNotifications(navigate) {
       const conversation = snapshot?.conversation
       if (!conversation?.messages?.length) return
 
-      for (const message of conversation.messages) {
+      const recentMessages = conversation.messages.slice(-2)
+      for (const message of recentMessages) {
         const messageKey = `${conversation.id}:${message.id}`
         const previousStatus = messageStatusRef.current.get(messageKey)
         messageStatusRef.current.set(messageKey, message.status)
