@@ -24,6 +24,7 @@ export class ACPAgentConfig {
      * builtin, stdio (default), http, or sse
      */
     "type"?: string;
+    "profile"?: string;
     "command"?: string;
     "args"?: string[];
     "url"?: string;
@@ -42,14 +43,14 @@ export class ACPAgentConfig {
      * Creates a new ACPAgentConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): ACPAgentConfig {
-        const $$createField5_0 = $$createType0;
-        const $$createField7_0 = $$createType1;
+        const $$createField6_0 = $$createType0;
+        const $$createField8_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
-            $$parsedSource["args"] = $$createField5_0($$parsedSource["args"]);
+            $$parsedSource["args"] = $$createField6_0($$parsedSource["args"]);
         }
         if ("headers" in $$parsedSource) {
-            $$parsedSource["headers"] = $$createField7_0($$parsedSource["headers"]);
+            $$parsedSource["headers"] = $$createField8_0($$parsedSource["headers"]);
         }
         return new ACPAgentConfig($$parsedSource as Partial<ACPAgentConfig>);
     }
@@ -67,7 +68,7 @@ export class Config {
      */
     "providers": { [_ in string]?: ProviderConfig | null };
     "mcpServers"?: { [_ in string]?: McpServerConfig | null };
-    "channels"?: { [_ in string]?: any };
+    "channels"?: json$0.RawMessage[];
 
     /**
      * ChannelsEnabled controls whether desktop should run the remote channel gateway.
@@ -269,6 +270,6 @@ const $$createType9 = $Create.Map($Create.Any, $$createType8);
 const $$createType10 = mcp$0.McpServerConfig.createFrom;
 const $$createType11 = $Create.Nullable($$createType10);
 const $$createType12 = $Create.Map($Create.Any, $$createType11);
-const $$createType13 = $Create.Map($Create.Any, $Create.Any);
+const $$createType13 = $Create.Array($Create.Any);
 const $$createType14 = $Create.Map($Create.Any, $Create.Any);
 const $$createType15 = LoggingConfig.createFrom;

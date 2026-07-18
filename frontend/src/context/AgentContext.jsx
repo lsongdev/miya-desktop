@@ -6,9 +6,8 @@ const AgentContext = createContext(null)
 
 const SELECTED_KEY = 'miya-selected-agent'
 
-const BUILTIN_AGENT = { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'], builtin: true }
-
 function commandFromAgent(agent) {
+  if (agent?.type === 'builtin') return 'miya-agent acp'
   if (!agent?.command?.trim()) return ''
   return [agent.command.trim(), ...(agent.args || [])].join(' ')
 }
@@ -41,12 +40,14 @@ export function AgentProvider({ children }) {
 
   const agents = useMemo(() => {
     const configured = Array.isArray(config.agents) ? config.agents : []
-    const source = [BUILTIN_AGENT, ...configured.filter((agent) => agent.id !== BUILTIN_AGENT.id)]
-    return source
+    return configured
       .filter((agent) => agent.enabled !== false)
-      .map(normalizeAgent)
-      .filter((agent) => agent.id && agent.command)
-  }, [config.agents])
+      .map((agent) => ({
+        ...normalizeAgent(agent),
+        model: agent.type === 'builtin' ? config.profiles?.[agent.profile]?.model || '' : '',
+      }))
+      .filter((agent) => agent.id && (agent.type === 'builtin' || agent.command))
+  }, [config.agents, config.profiles])
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0] || null
 
@@ -69,7 +70,7 @@ export function AgentProvider({ children }) {
 
   const connect = useCallback(async (agent, options = {}) => {
     const target = agent || selectedAgent
-    if (!target?.command?.trim()) return
+    if (!target || (target.type !== 'builtin' && !target.command?.trim())) return
 
     setConnecting(true)
     setError(null)
@@ -114,10 +115,15 @@ export function AgentProvider({ children }) {
   }, [disconnect, connect])
 
   useEffect(() => {
-    if (!loading && selectedAgent?.command && !connected && !connecting) {
-      connect(null, { fallback: true })
+    if (loading || connecting) return
+    if (!selectedAgent) {
+      if (connected) disconnect()
+      return
     }
-  }, [loading, selectedAgent?.id, selectedAgent?.command, connected, connecting, connect])
+    if (!connected || selectedAgent.id !== selectedAgentId) {
+      connect(selectedAgent, { fallback: true })
+    }
+  }, [loading, selectedAgent?.id, selectedAgent?.command, selectedAgentId, connected, connecting, connect, disconnect])
 
   return (
     <AgentContext.Provider value={{

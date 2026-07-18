@@ -139,6 +139,10 @@ export function LoadSession(sessionID: string, cwd: string): $CancellablePromise
     return $Call.ByID(2280082259, sessionID, cwd);
 }
 
+export function MiyaConfigExists(): $CancellablePromise<boolean> {
+    return $Call.ByID(1351908919);
+}
+
 export function MiyaConfigPath(): $CancellablePromise<string> {
     return $Call.ByID(1892314592);
 }

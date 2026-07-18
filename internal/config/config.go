@@ -29,6 +29,11 @@ func (s *Service) Path() string {
 	return s.path
 }
 
+func (s *Service) Exists() bool {
+	_, err := os.Stat(s.path)
+	return err == nil
+}
+
 func (s *Service) Load() (*Config, error) {
 	cfg, err := agentsconfig.LoadConfigFromFile(s.path)
 	if err != nil {

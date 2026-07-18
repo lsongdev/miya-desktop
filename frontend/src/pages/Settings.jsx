@@ -63,6 +63,10 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '')
 }
 
+function validConfigId(value) {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value.trim())
+}
+
 function basename(value) {
   const normalized = value.trim().replace(/\\/g, '/')
   return normalized.split('/').filter(Boolean).pop() || ''
@@ -244,9 +248,7 @@ function GeneralSettings() {
 
 function AgentsSettings() {
   const { config, saveConfig, saving, error } = useMiyaConfig()
-  const builtinAgent = { id: 'miya', name: 'Miya Agents', type: 'builtin', command: 'miya-agent', args: ['acp'], builtin: true, enabled: true }
-  const configuredAgents = Array.isArray(config.agents) ? config.agents : []
-  const agents = [builtinAgent, ...configuredAgents.filter((agent) => agent.id !== builtinAgent.id)]
+  const agents = Array.isArray(config.agents) ? config.agents : []
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ name: '', enabled: true, command: '', args: '' })
@@ -311,7 +313,7 @@ function AgentsSettings() {
     <div className="space-y-4">
       <SectionHeader
         title="Agents"
-        description="Manage ACP agent endpoints."
+        description="Manage built-in profile agents and external ACP agents."
         action={(
           <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
             <Plus className="size-3.5 mr-1" /> Add Agent
@@ -326,14 +328,16 @@ function AgentsSettings() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm">{agent.name || agent.id}</p>
-                    {agent.builtin && <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Built in</span>}
+                    {agent.type === 'builtin' && <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Built in</span>}
                   </div>
                   <p className="text-xs text-muted-foreground font-mono truncate">
-                    {agent.type || 'stdio'} / {commandFromAgent(agent)}
+                    {agent.type === 'builtin'
+                      ? `${agent.profile || 'no profile'} / ${config.profiles?.[agent.profile]?.model || 'no model'}`
+                      : `${agent.type || 'stdio'} / ${commandFromAgent(agent)}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {!agent.builtin && (
+                  {agent.type !== 'builtin' && (
                     <>
                       <Button variant="ghost" size="icon-xs" onClick={() => startEdit(agent)}><Pencil className="size-3" /></Button>
                       <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(agent.id)}><Trash2 className="size-3" /></Button>
@@ -342,7 +346,7 @@ function AgentsSettings() {
                   <Switch
                     checked={agent.enabled !== false}
                     onChange={(enabled) => handleToggleEnabled(agent.id, enabled)}
-                    disabled={saving || agent.builtin}
+                    disabled={saving}
                     label={`Enable ${agent.name || agent.id}`}
                   />
                 </div>
@@ -416,7 +420,7 @@ function ProfilesSettings({ onSelectItem }) {
   }
   const handleSave = async () => {
     const id = form.id.trim()
-    if (!id || !form.provider.trim()) return
+    if (!validConfigId(id) || !form.provider.trim()) return
     await saveConfig((prev) => {
       const profiles = { ...(prev.profiles || {}) }
       if (editing && editing !== id) delete profiles[editing]
@@ -429,7 +433,41 @@ function ProfilesSettings({ onSelectItem }) {
         contextWindowTokens: Number(form.contextWindowTokens) || 0,
         contextWarnRatio: Number(form.contextWarnRatio) || 0,
       }
-      return { ...prev, profiles }
+      const agents = Array.isArray(prev.agents) ? [...prev.agents] : []
+      if (editing) {
+        const previousGeneratedName = editing === 'default' ? 'Miya Default' : editing
+        for (let index = 0; index < agents.length; index += 1) {
+          if (agents[index].type === 'builtin' && agents[index].profile === editing) {
+            agents[index] = {
+              ...agents[index],
+              profile: id,
+              name: agents[index].name === previousGeneratedName
+                ? (id === 'default' ? 'Miya Default' : id)
+                : agents[index].name,
+            }
+          }
+        }
+      }
+      if (!agents.some((agent) => agent.type === 'builtin' && agent.profile === id)) {
+        const baseId = `miya-${id}`
+        let agentId = baseId
+        let suffix = 2
+        const used = new Set(agents.map((agent) => agent.id))
+        while (used.has(agentId)) {
+          agentId = `${baseId}-${suffix}`
+          suffix += 1
+        }
+        agents.push({
+          id: agentId,
+          name: id === 'default' ? 'Miya Default' : id,
+          enabled: true,
+          type: 'builtin',
+          profile: id,
+          command: 'miya-agent',
+          args: ['acp'],
+        })
+      }
+      return { ...prev, profiles, agents }
     })
     handleCancel()
   }
@@ -437,7 +475,8 @@ function ProfilesSettings({ onSelectItem }) {
     await saveConfig((prev) => {
       const profiles = { ...(prev.profiles || {}) }
       delete profiles[id]
-      return { ...prev, profiles }
+      const agents = (prev.agents || []).filter((agent) => !(agent.type === 'builtin' && agent.profile === id))
+      return { ...prev, profiles, agents }
     })
   }
 
@@ -480,7 +519,7 @@ function ProfilesSettings({ onSelectItem }) {
       <Input value={form.contextWindowTokens} onChange={(e) => setForm((f) => ({ ...f, contextWindowTokens: e.target.value }))} placeholder="Context window tokens" className={monoInputClass} />
       <Input value={form.contextWarnRatio} onChange={(e) => setForm((f) => ({ ...f, contextWarnRatio: e.target.value }))} placeholder="Context warn ratio" className={monoInputClass} />
       <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.id.trim() || !form.provider.trim() || saving}>
+        <Button size="sm" onClick={handleSave} disabled={!validConfigId(form.id) || !form.provider.trim() || saving}>
           <Check className="size-3.5 mr-1" /> Save
         </Button>
         <Button size="sm" variant="ghost" onClick={handleCancel}>

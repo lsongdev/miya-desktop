@@ -7,6 +7,7 @@ import { Create as $Create } from "@wailsio/runtime";
 
 export class ChannelEvent {
     "channel": string;
+    "channelType"?: string;
     "type": string;
     "status"?: string;
     "qrcode"?: string;

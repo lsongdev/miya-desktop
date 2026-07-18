@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   CreateSession,
@@ -87,6 +87,8 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     if (onRefresh) onRefresh.current = fetchSessions
   }, [fetchSessions, onRefresh])
 
+  const defaultAgent = agents.find((agent) => agent.id === currentAgentId) || agents[0]
+
   const handleNewSession = async (agent) => {
     setCreating(true)
     setActionError(null)
@@ -159,7 +161,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
     }
   }
 
-  const groups = groupSessions(sessions, agents)
+  const groups = useMemo(() => groupSessions(sessions, agents), [sessions, agents])
   const showAgentMenu = agents.length > 1
   const missingProfiles = actionError?.includes('no profiles configured')
   const actionErrorMessage = missingProfiles
@@ -173,7 +175,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
           <Button
             className={`flex-1 ${showAgentMenu ? 'rounded-r-none border-r border-primary-foreground/20' : ''}`}
             size="sm"
-            onClick={() => handleNewSession(agents.find((agent) => agent.id === currentAgentId) || agents[0])}
+            onClick={() => handleNewSession(defaultAgent)}
             disabled={creating || agents.length === 0}
           >
             {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
@@ -201,7 +203,9 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
                   }`}
                 >
                   <span className="truncate font-medium">{agent.name || agent.id}</span>
-                  <span className="truncate font-mono text-[10px] text-muted-foreground">{agent.command}</span>
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">
+                    {agent.type === 'builtin' ? `${agent.profile} / ${agent.model || 'model not configured'}` : agent.command}
+                  </span>
                 </button>
               ))}
             </div>
@@ -234,7 +238,7 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
       <div className="flex-1 overflow-y-auto">
         {agents.length === 0 ? (
           <div className="py-8 px-3 text-center text-xs text-muted-foreground">
-            Enable an agent in Settings
+            Configure or enable an agent
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-8">

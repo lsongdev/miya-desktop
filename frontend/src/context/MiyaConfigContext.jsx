@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { LoadMiyaConfig, MiyaConfigPath, SaveMiyaConfig } from '../../bindings/wails-app/app'
+import { LoadMiyaConfig, MiyaConfigExists, MiyaConfigPath, SaveMiyaConfig } from '../../bindings/wails-app/app'
 
 const MiyaConfigContext = createContext(null)
 
@@ -26,6 +26,7 @@ function normalizeConfig(config) {
 export function MiyaConfigProvider({ children }) {
   const [config, setConfig] = useState(emptyConfig)
   const [path, setPath] = useState('')
+  const [exists, setExists] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -34,9 +35,14 @@ export function MiyaConfigProvider({ children }) {
     setLoading(true)
     setError(null)
     try {
-      const [nextConfig, nextPath] = await Promise.all([LoadMiyaConfig(), MiyaConfigPath()])
+      const [nextConfig, nextPath, configExists] = await Promise.all([
+        LoadMiyaConfig(),
+        MiyaConfigPath(),
+        MiyaConfigExists(),
+      ])
       setConfig(normalizeConfig(nextConfig))
       setPath(nextPath)
+      setExists(configExists)
     } catch (err) {
       setError(err.toString())
     } finally {
@@ -55,6 +61,7 @@ export function MiyaConfigProvider({ children }) {
       const next = typeof updater === 'function' ? normalizeConfig(updater(config)) : normalizeConfig(updater)
       await SaveMiyaConfig(next)
       setConfig(next)
+      setExists(true)
       return next
     } catch (err) {
       setError(err.toString())
@@ -67,12 +74,13 @@ export function MiyaConfigProvider({ children }) {
   const value = useMemo(() => ({
     config,
     path,
+    exists,
     loading,
     saving,
     error,
     reload,
     saveConfig,
-  }), [config, path, loading, saving, error, reload, saveConfig])
+  }), [config, path, exists, loading, saving, error, reload, saveConfig])
 
   return (
     <MiyaConfigContext.Provider value={value}>

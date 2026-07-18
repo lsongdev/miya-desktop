@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"testing"
+
+	miyaconfig "wails-app/internal/config"
 )
 
 func TestGetConversationMissingReturnsNil(t *testing.T) {
@@ -14,6 +16,14 @@ func TestGetConversationMissingReturnsNil(t *testing.T) {
 	}
 	if conversation != nil {
 		t.Fatalf("GetConversation returned conversation: %#v", conversation)
+	}
+}
+
+func TestConnectEndpointRejectsIDsThatBreakSessionKeys(t *testing.T) {
+	manager := New(context.Background(), nil, nil)
+	err := manager.ConnectEndpoint(miyaconfig.ACPAgentConfig{ID: "miya:default", Type: "builtin"})
+	if err == nil {
+		t.Fatal("ConnectEndpoint succeeded with colon in id")
 	}
 }
 

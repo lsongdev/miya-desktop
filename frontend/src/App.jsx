@@ -13,16 +13,17 @@ import {
   SidebarProvider,
   SidebarInset,
 } from './components/ui/sidebar';
-import { MessagesSquare, Settings as SettingsIcon } from 'lucide-react'
+import { Loader2, MessagesSquare, Settings as SettingsIcon } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
 import { ProviderProvider } from './context/ProviderContext';
-import { MiyaConfigProvider } from './context/MiyaConfigContext';
+import { MiyaConfigProvider, useMiyaConfig } from './context/MiyaConfigContext';
 import { NavigationContext } from './hooks/useNavigate';
 import useDesktopNotifications from './hooks/useDesktopNotifications';
 import miyaIcon from './assets/images/miya-icon.png'
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import Welcome from './pages/Welcome';
 
 const pageComponents = {
   chat: Chat,
@@ -99,7 +100,7 @@ function AppSidebar({ activePage, onNavigate }) {
   );
 }
 
-export default function App() {
+function DesktopApp() {
   const [activePage, setActivePage] = useState('chat');
   const [navParams, setNavParams] = useState({});
   const ActivePage = pageComponents[activePage];
@@ -109,6 +110,24 @@ export default function App() {
   }, [])
   useDesktopNotifications(navigate)
 
+  return (
+    <AgentProvider>
+      <NavigationContext.Provider value={{ page: activePage, params: navParams, navigate }}>
+        <SidebarProvider defaultOpen={false}>
+          <AppSidebar activePage={activePage} onNavigate={(page) => navigate(page)} />
+          <SidebarInset className="min-w-0 overflow-hidden">
+            <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
+              {ActivePage && <ActivePage />}
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </NavigationContext.Provider>
+    </AgentProvider>
+  );
+}
+
+function ConfigGate() {
+  const { exists, loading } = useMiyaConfig()
   useEffect(() => {
     repairViewport()
     const cleanup = Events.On('app:viewport-repair', () => {
@@ -124,24 +143,24 @@ export default function App() {
     }
   }, [])
 
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+      </div>
+    )
+  }
+  return exists ? <DesktopApp /> : <Welcome />
+}
+
+export default function App() {
   return (
     <ThemeProvider>
       <ProviderProvider>
         <MiyaConfigProvider>
-          <AgentProvider>
-            <NavigationContext.Provider value={{ page: activePage, params: navParams, navigate }}>
-              <SidebarProvider defaultOpen={false}>
-                <AppSidebar activePage={activePage} onNavigate={(page) => navigate(page)} />
-                <SidebarInset className="min-w-0 overflow-hidden">
-                  <main className="flex flex-1 flex-col min-w-0 overflow-hidden" style={{ WebkitAppRegion: 'no-drag' }}>
-                    {ActivePage && <ActivePage />}
-                  </main>
-                </SidebarInset>
-              </SidebarProvider>
-            </NavigationContext.Provider>
-          </AgentProvider>
+          <ConfigGate />
         </MiyaConfigProvider>
       </ProviderProvider>
     </ThemeProvider>
-  );
+  )
 }

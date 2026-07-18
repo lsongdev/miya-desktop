@@ -28,6 +28,7 @@ type Session struct {
 	AgentID      string `json:"agentId,omitempty"`
 	AgentName    string `json:"agentName,omitempty"`
 	AgentCommand string `json:"agentCommand,omitempty"`
+	ACPProfile   string `json:"-"`
 }
 
 type AgentInfo struct {
@@ -96,23 +97,27 @@ func (m *Manager) currentAgentID() string {
 	return m.endpoint.ID
 }
 
+func (m *Manager) currentAgentName() string {
+	if m.endpoint == nil {
+		return ""
+	}
+	if name := strings.TrimSpace(m.endpoint.Name); name != "" {
+		return name
+	}
+	return strings.TrimSpace(m.endpoint.ID)
+}
+
 func (m *Manager) currentModel() string {
-	if m.loadConfig == nil {
+	if m.loadConfig == nil || m.endpoint == nil || m.endpoint.Type != "builtin" {
 		return ""
 	}
 	cfg, err := m.loadConfig()
 	if err != nil || cfg == nil {
 		return ""
 	}
-	if profile := cfg.Profiles["default"]; profile != nil {
+	profileID := strings.TrimSpace(m.endpoint.Profile)
+	if profile := cfg.Profiles[profileID]; profile != nil {
 		return strings.TrimSpace(profile.ModelName)
-	}
-	if len(cfg.Profiles) == 1 {
-		for _, profile := range cfg.Profiles {
-			if profile != nil {
-				return strings.TrimSpace(profile.ModelName)
-			}
-		}
 	}
 	return ""
 }
@@ -170,6 +175,9 @@ func (m *Manager) connectLocked(command string) error {
 }
 
 func (m *Manager) connectEndpointLocked(endpoint miyaconfig.ACPAgentConfig) error {
+	if strings.TrimSpace(endpoint.ID) == "" || strings.Contains(endpoint.ID, ":") {
+		return fmt.Errorf("agent: invalid endpoint id %q", endpoint.ID)
+	}
 	if m.client != nil {
 		m.client.Close()
 		m.client = nil
@@ -402,9 +410,14 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 func (m *Manager) NewSession(cwd string) (*Session, error) {
 	var session *Session
 	err := m.runWithRetry(func(client *acp.Client) error {
+		meta := acp.Meta{}
+		if m.endpoint != nil && strings.TrimSpace(m.endpoint.Profile) != "" {
+			meta[acp.MiyaProfileMetaKey] = strings.TrimSpace(m.endpoint.Profile)
+		}
 		resp, err := client.NewSession(&acp.NewSessionRequest{
 			Cwd:        cwd,
 			McpServers: []acp.McpServer{},
+			Meta:       meta,
 		})
 		if err != nil {
 			return fmt.Errorf("agent: new session: %w", err)
@@ -417,7 +430,10 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 			Key:       conversationID,
 			Cwd:       cwd,
 			AgentID:   m.currentAgentID(),
-			AgentName: m.currentAgentID(),
+			AgentName: m.currentAgentName(),
+		}
+		if resolved, ok := resp.Meta[acp.MiyaProfileMetaKey].(string); ok && strings.TrimSpace(resolved) != "" {
+			session.ACPProfile = strings.TrimSpace(resolved)
 		}
 		snapshot := m.store.RegisterSessionWithACP(conversationID, sessionID, cwd)
 		m.emitEvent("conversation:update", snapshot)
@@ -513,6 +529,9 @@ func (m *Manager) ListSessions() ([]Session, error) {
 			}
 			if s.UpdatedAt != nil {
 				session.UpdatedAt = *s.UpdatedAt
+			}
+			if profileID, ok := s.Meta[acp.MiyaProfileMetaKey].(string); ok {
+				session.ACPProfile = strings.TrimSpace(profileID)
 			}
 			m.store.RegisterSessionWithACP(session.Key, session.ID, session.Cwd)
 			sessions = append(sessions, session)

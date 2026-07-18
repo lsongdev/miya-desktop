@@ -68,17 +68,6 @@ type UpdateCheckResult struct {
 	State          string `json:"state"`
 }
 
-func builtinAgentEndpoint() miyaconfig.ACPAgentConfig {
-	return miyaconfig.ACPAgentConfig{
-		ID:      "miya",
-		Name:    "Miya Agents",
-		Enabled: boolPtr(true),
-		Type:    "builtin",
-		Command: "miya-agent",
-		Args:    []string{"acp"},
-	}
-}
-
 // NewApp creates a new App application struct
 func NewApp(emit agent.EventEmitter) *App {
 	return &App{emit: emit}
@@ -104,12 +93,13 @@ func (a *App) startup(ctx context.Context) {
 	a.config = miyaconfig.NewService()
 	a.manager = agent.New(ctx, a.config.Load, a.emit)
 	a.channels = channelservice.NewService(a.config.Load, a.emit)
+	hasConfig := a.config.Exists()
 	cfg, err := a.config.Load()
 	if err != nil {
 		log.Printf("[channels] config load failed during auto-start: %v", err)
 		return
 	}
-	if channelsEnabled(cfg) {
+	if hasConfig && channelsEnabled(cfg) {
 		go func() {
 			if _, err := a.channels.Start(ctx); err != nil {
 				log.Printf("[channels] auto-start failed: %v", err)
@@ -316,9 +306,6 @@ func (a *App) ConnectAgent(command string) error {
 }
 
 func (a *App) ConnectConfiguredAgent(agentID string) error {
-	if agentID == "miya" {
-		return a.manager.ConnectEndpoint(builtinAgentEndpoint())
-	}
 	cfg, err := a.config.Load()
 	if err != nil {
 		return err
@@ -395,13 +382,7 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 	}
 
 	var sessions []agent.Session
-	configuredAgents := make([]miyaconfig.ACPAgentConfig, 0, len(cfg.Agents))
 	for _, endpoint := range cfg.Agents {
-		if endpoint.ID != "miya" {
-			configuredAgents = append(configuredAgents, endpoint)
-		}
-	}
-	for _, endpoint := range append([]miyaconfig.ACPAgentConfig{builtinAgentEndpoint()}, configuredAgents...) {
 		if !endpoint.IsEnabled() {
 			continue
 		}
@@ -420,6 +401,9 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 			continue
 		}
 		for _, session := range list {
+			if endpoint.Type == "builtin" && session.ACPProfile != strings.TrimSpace(endpoint.Profile) {
+				continue
+			}
 			session.AgentID = endpoint.ID
 			session.AgentName = endpoint.Name
 			if session.AgentName == "" {
@@ -476,6 +460,10 @@ func (a *App) ReconnectAgent() error {
 
 func (a *App) MiyaConfigPath() string {
 	return a.config.Path()
+}
+
+func (a *App) MiyaConfigExists() bool {
+	return a.config.Exists()
 }
 
 func (a *App) LoadMiyaConfig() (*miyaconfig.Config, error) {
@@ -746,6 +734,9 @@ func listSessionsForClient(client *acp.Client) ([]agent.Session, error) {
 		if s.UpdatedAt != nil {
 			session.UpdatedAt = *s.UpdatedAt
 		}
+		if profileID, ok := s.Meta[acp.MiyaProfileMetaKey].(string); ok {
+			session.ACPProfile = strings.TrimSpace(profileID)
+		}
 		sessions = append(sessions, session)
 	}
 	return sessions, nil
@@ -756,8 +747,4 @@ func commandString(endpoint miyaconfig.ACPAgentConfig) string {
 		return ""
 	}
 	return strings.Join(append([]string{endpoint.Command}, endpoint.Args...), " ")
-}
-
-func boolPtr(v bool) *bool {
-	return &v
 }
