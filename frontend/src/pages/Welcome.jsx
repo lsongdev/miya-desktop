@@ -12,7 +12,7 @@ export default function Welcome() {
   const [providerName, setProviderName] = useState('openai')
   const [apiBase, setApiBase] = useState('https://api.openai.com/v1')
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('gpt-5')
+  const [model, setModel] = useState('')
   const [formError, setFormError] = useState('')
 
   const providerValid = Boolean(providerName.trim()) && Boolean(apiBase.trim())
@@ -162,7 +162,7 @@ function ModelStep({ model, providerName, apiBase, apiKey, onModelChange }) {
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState('')
 
-  const fetchModels = useCallback(async () => {
+  const fetchModels = useCallback(async (selectFirst = false) => {
     if (!apiKey.trim()) {
       setModelsError('Enter an API key to fetch available models, or type a model name.')
       return
@@ -175,16 +175,18 @@ function ModelStep({ model, providerName, apiBase, apiKey, onModelChange }) {
         apiKey: apiKey.trim(),
         apiBase: apiBase.trim(),
       })
-      setModelOptions(models || [])
+      const options = models || []
+      setModelOptions(options)
+      if (selectFirst) onModelChange(options[0] || '')
     } catch (err) {
       setModelsError(err?.toString?.() || String(err))
     } finally {
       setModelsLoading(false)
     }
-  }, [apiBase, apiKey, providerName])
+  }, [apiBase, apiKey, onModelChange, providerName])
 
   useEffect(() => {
-    fetchModels()
+    fetchModels(true)
   }, [fetchModels])
 
   return (
@@ -202,7 +204,7 @@ function ModelStep({ model, providerName, apiBase, apiKey, onModelChange }) {
               placeholder="Select or enter a model"
               autoFocus
             />
-            <Button type="button" variant="outline" size="icon" onClick={fetchModels} disabled={modelsLoading} title="Refresh models">
+            <Button type="button" variant="outline" size="icon" onClick={() => fetchModels()} disabled={modelsLoading} title="Refresh models">
               {modelsLoading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
               <span className="sr-only">Refresh models</span>
             </Button>
