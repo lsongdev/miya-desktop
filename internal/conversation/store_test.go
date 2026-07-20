@@ -109,6 +109,29 @@ func TestStoreSetModelOnlySnapshotsChanges(t *testing.T) {
 	}
 }
 
+func TestStoreQuietApplyAndReplace(t *testing.T) {
+	store := testStore()
+	event := mustEvent(t, `{
+		"sessionUpdate": "agent_message_chunk",
+		"content": {"type": "text", "text": "cached"}
+	}`)
+	store.ApplyACPEventQuiet("s1", event)
+	snapshot, ok := store.Snapshot("s1")
+	if !ok || snapshot.Conversation.Messages[0].Blocks[0].Content != "cached" {
+		t.Fatalf("quiet snapshot = %#v", snapshot)
+	}
+
+	replacement := Conversation{ID: "s1", Title: "replayed"}
+	replaced := store.Replace(replacement, "replay_completed")
+	if replaced.EventType != "replay_completed" || replaced.Conversation.Title != "replayed" {
+		t.Fatalf("Replace() = %#v", replaced)
+	}
+	store.Delete("s1")
+	if _, ok := store.Snapshot("s1"); ok {
+		t.Fatal("Delete() retained the conversation")
+	}
+}
+
 func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	store := testStore()
 

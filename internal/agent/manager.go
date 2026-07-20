@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -52,9 +53,19 @@ type Manager struct {
 	initName             string
 	initVer              string
 	store                *conversation.Store
+	cache                *conversation.Cache
 	emit                 EventEmitter
 	conversationEmitMu   sync.Mutex
 	lastConversationEmit map[string]time.Time
+	replayMu             sync.Mutex
+	replays              map[string]*sessionReplay
+	loadedSessions       map[string]bool
+}
+
+type sessionReplay struct {
+	store        *conversation.Store
+	showProgress bool
+	lastEmit     time.Time
 }
 
 func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmitter) *Manager {
@@ -65,8 +76,11 @@ func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmi
 		ctx:                  ctx,
 		loadConfig:           loadConfig,
 		store:                conversation.NewStore(),
+		cache:                conversation.NewCache(filepath.Join(filepath.Dir(miyaconfig.DefaultConfigFile()), "cache", "conversations")),
 		emit:                 emit,
 		lastConversationEmit: make(map[string]time.Time),
+		replays:              make(map[string]*sessionReplay),
+		loadedSessions:       make(map[string]bool),
 	}
 }
 
@@ -193,6 +207,7 @@ func (m *Manager) connectEndpointLocked(endpoint miyaconfig.ACPAgentConfig) erro
 	m.client = client
 	m.command = endpointCommand(endpoint)
 	m.endpoint = &endpoint
+	clear(m.loadedSessions)
 	log.Printf("[agent] Connected to %q", m.command)
 	return nil
 }
@@ -217,15 +232,38 @@ func (r *managerNotificationReceiver) SessionUpdate(notification *acp.SessionNot
 	}
 	sessionID := string(notification.SessionID)
 	conversationID := r.manager.scopedSessionID(sessionID)
-	r.manager.store.EnsureSessionWithACP(conversationID, sessionID, "")
-	snapshot := r.manager.store.ApplyACPEvent(conversationID, event)
+	store, emitConversation := r.manager.storeForUpdate(conversationID)
+	store.EnsureSessionWithACP(conversationID, sessionID, "")
+	var snapshot conversation.Snapshot
+	if emitConversation {
+		snapshot = store.ApplyACPEvent(conversationID, event)
+	} else {
+		store.ApplyACPEventQuiet(conversationID, event)
+	}
 	r.manager.emitEvent("session:update", map[string]any{
 		"sessionId": conversationID,
 		"event":     event,
 	})
-	if r.manager.shouldEmitConversationUpdate(conversationID) {
+	if emitConversation {
 		r.manager.emitEvent("conversation:update", snapshot)
 	}
+}
+
+func (m *Manager) storeForUpdate(conversationID string) (*conversation.Store, bool) {
+	m.replayMu.Lock()
+	defer m.replayMu.Unlock()
+	if replay := m.replays[conversationID]; replay != nil {
+		if !replay.showProgress {
+			return replay.store, false
+		}
+		now := time.Now()
+		if replay.lastEmit.IsZero() || now.Sub(replay.lastEmit) >= 200*time.Millisecond {
+			replay.lastEmit = now
+			return replay.store, true
+		}
+		return replay.store, false
+	}
+	return m.store, m.shouldEmitConversationUpdate(conversationID)
 }
 
 func (r *managerNotificationReceiver) InvalidNotification(method string, params json.RawMessage, err error) {
@@ -383,15 +421,26 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 	return m.runWithRetry(func(client *acp.Client) error {
 		conversationID, acpSessionID := m.splitSessionRef(sessionID)
 		log.Printf("[agent] LoadSession: id=%q acp=%q cwd=%q", conversationID, acpSessionID, cwd)
-		if m.store.HasMessages(conversationID) {
+		if m.loadedSessions[conversationID] {
 			if snapshot, ok := m.store.Snapshot(conversationID); ok {
 				m.emitEvent("conversation:update", snapshot)
 			}
 			return nil
 		}
-		snapshot := m.store.ResetSessionWithACP(conversationID, acpSessionID, cwd)
-		m.emitEvent("conversation:update", snapshot)
-		m.annotateModel(conversationID)
+		hasCachedMessages := m.store.HasMessages(conversationID)
+		replayStore := conversation.NewStore()
+		snapshot := replayStore.ResetSessionWithACP(conversationID, acpSessionID, cwd)
+		if !hasCachedMessages {
+			m.emitEvent("conversation:update", snapshot)
+		}
+		m.replayMu.Lock()
+		m.replays[conversationID] = &sessionReplay{store: replayStore, showProgress: !hasCachedMessages}
+		m.replayMu.Unlock()
+		defer func() {
+			m.replayMu.Lock()
+			delete(m.replays, conversationID)
+			m.replayMu.Unlock()
+		}()
 		_, err := client.LoadSession(&acp.LoadSessionRequest{
 			SessionID:  acp.SessionID(acpSessionID),
 			Cwd:        cwd,
@@ -400,8 +449,14 @@ func (m *Manager) LoadSession(sessionID, cwd string) error {
 		if err != nil {
 			return fmt.Errorf("agent: load session: %w", err)
 		}
-		if snapshot, ok := m.store.CompleteStreaming(conversationID); ok {
-			m.emitEvent("conversation:update", snapshot)
+		if model := m.currentModel(); model != "" {
+			replayStore.SetModel(conversationID, model)
+		}
+		if replayed, ok := replayStore.CompleteStreaming(conversationID); ok {
+			final := m.store.Replace(replayed.Conversation, "replay_completed")
+			m.loadedSessions[conversationID] = true
+			m.emitEvent("conversation:update", final)
+			m.saveConversation(final.Conversation)
 		}
 		return nil
 	})
@@ -436,6 +491,7 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 			session.ACPProfile = strings.TrimSpace(resolved)
 		}
 		snapshot := m.store.RegisterSessionWithACP(conversationID, sessionID, cwd)
+		m.loadedSessions[conversationID] = true
 		m.emitEvent("conversation:update", snapshot)
 		m.annotateModel(conversationID)
 		return nil
@@ -445,6 +501,9 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 
 func (m *Manager) Prompt(sessionID, message string) error {
 	conversationID, acpSessionID := m.splitSessionRef(sessionID)
+	m.mu.Lock()
+	m.loadedSessions[conversationID] = true
+	m.mu.Unlock()
 	log.Printf("[agent] Prompt: session=%q acp=%q message=%q", conversationID, acpSessionID, message)
 	m.store.RegisterSessionWithACP(conversationID, acpSessionID, "")
 	m.annotateModel(conversationID)
@@ -489,6 +548,7 @@ func (m *Manager) Prompt(sessionID, message string) error {
 			"eventType":    snapshot.EventType,
 			"stopReason":   resp.StopReason,
 		})
+		m.saveConversation(snapshot.Conversation)
 	}
 	return nil
 }
@@ -543,10 +603,21 @@ func (m *Manager) ListSessions() ([]Session, error) {
 
 func (m *Manager) GetConversation(sessionID string) (*conversation.Conversation, error) {
 	snapshot, ok := m.store.Snapshot(sessionID)
-	if !ok {
+	if ok && len(snapshot.Conversation.Messages) > 0 {
+		return &snapshot.Conversation, nil
+	}
+	cached, err := m.cache.Load(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if cached == nil {
+		if ok {
+			return &snapshot.Conversation, nil
+		}
 		return nil, nil
 	}
-	return &snapshot.Conversation, nil
+	hydrated := m.store.Replace(*cached, "cache_hydrated")
+	return &hydrated.Conversation, nil
 }
 
 func (m *Manager) CloseSession(sessionID string) error {
@@ -570,8 +641,23 @@ func (m *Manager) DeleteSession(sessionID string) error {
 	})
 	if err != nil {
 		log.Printf("[agent] DeleteSession failed: %v", err)
+		return err
 	}
-	return err
+	conversationID, _ := m.splitSessionRef(sessionID)
+	m.store.Delete(conversationID)
+	m.mu.Lock()
+	delete(m.loadedSessions, conversationID)
+	m.mu.Unlock()
+	if cacheErr := m.cache.Delete(conversationID); cacheErr != nil {
+		log.Printf("[agent] DeleteSession cache cleanup failed: %v", cacheErr)
+	}
+	return nil
+}
+
+func (m *Manager) saveConversation(conv conversation.Conversation) {
+	if err := m.cache.Save(conv); err != nil {
+		log.Printf("[agent] Save conversation cache failed: %v", err)
+	}
 }
 
 func (m *Manager) Disconnect() error {

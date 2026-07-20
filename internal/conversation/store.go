@@ -107,6 +107,12 @@ func (s *Store) HasMessages(sessionID string) bool {
 	return ok && len(conv.Messages) > 0
 }
 
+func (s *Store) Delete(sessionID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.conversations, sessionID)
+}
+
 func (s *Store) AddLocalUserMessage(sessionID, text string) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -153,6 +159,18 @@ func (s *Store) CompleteStreaming(sessionID string) (Snapshot, bool) {
 func (s *Store) ApplyACPEvent(sessionID string, event *acpadapter.Event) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.applyACPEventLocked(sessionID, event)
+	conv := s.conversations[sessionID]
+	return Snapshot{Conversation: cloneConversation(*conv), EventType: event.Type}
+}
+
+func (s *Store) ApplyACPEventQuiet(sessionID string, event *acpadapter.Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.applyACPEventLocked(sessionID, event)
+}
+
+func (s *Store) applyACPEventLocked(sessionID string, event *acpadapter.Event) {
 
 	conv := s.ensureConversationLocked(sessionID)
 	now := s.nowString()
@@ -196,7 +214,14 @@ func (s *Store) ApplyACPEvent(sessionID string, event *acpadapter.Event) Snapsho
 	}
 
 	conv.UpdatedAt = now
-	return Snapshot{Conversation: cloneConversation(*conv), EventType: event.Type}
+}
+
+func (s *Store) Replace(conv Conversation, eventType string) Snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	copy := cloneConversation(conv)
+	s.conversations[conv.ID] = &copy
+	return Snapshot{Conversation: cloneConversation(copy), EventType: eventType}
 }
 
 func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType string, event *acpadapter.Event, now string) {
@@ -405,6 +430,11 @@ func cloneConversation(conv Conversation) Conversation {
 	conv.Messages = append([]Message(nil), conv.Messages...)
 	for i := range conv.Messages {
 		conv.Messages[i].Blocks = append([]Block(nil), conv.Messages[i].Blocks...)
+		for j := range conv.Messages[i].Blocks {
+			block := &conv.Messages[i].Blocks[j]
+			block.Raw = cloneRaw(block.Raw)
+			block.Tool = cloneTool(block.Tool)
+		}
 	}
 	return conv
 }

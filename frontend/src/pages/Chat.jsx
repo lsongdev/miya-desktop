@@ -1,4 +1,5 @@
-import { memo, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { memo, startTransition, useState, useEffect, useRef, useCallback } from 'react'
+import { Virtuoso } from 'react-virtuoso'
 import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
 import MarkdownContent from '@/components/MarkdownContent'
@@ -309,7 +310,6 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [stopReason, setStopReason] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const messagesContainerRef = useRef(null)
   const loadedRef = useRef(false)
   const inputRef = useRef(null)
   const pendingConversationRef = useRef(null)
@@ -330,8 +330,7 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
         existing = null
       }
 
-      const hasMessages = (existing?.messages?.length || 0) > 0
-      if (!shouldLoad || hasMessages || loadedRef.current) {
+      if (!shouldLoad || loadedRef.current) {
         onLoadComplete?.()
         return
       }
@@ -359,25 +358,15 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
     }
   }, [shouldLoad, sessionId, session?.cwd, onLoadComplete])
 
-  const handleMessagesScroll = useCallback(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-    followOutputRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96
-  }, [])
-
-  useLayoutEffect(() => {
-    const container = messagesContainerRef.current
-    if (!container || !followOutputRef.current) return
-    container.scrollTop = container.scrollHeight
-  }, [conversation?.messages])
-
   useEffect(() => {
     const flushConversation = () => {
       conversationTimerRef.current = null
       const next = pendingConversationRef.current
       pendingConversationRef.current = null
       if (next) {
-        setConversation((previous) => reconcileConversation(previous, next))
+        startTransition(() => {
+          setConversation((previous) => reconcileConversation(previous, next))
+        })
       }
     }
 
@@ -451,15 +440,18 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const usage = usageLabel(conversation?.usage)
   const mode = conversation?.mode?.currentModeId
   const model = conversation?.model
+  const handleAtBottomChange = useCallback((atBottom) => {
+    followOutputRef.current = atBottom
+  }, [])
+  const followOutput = useCallback(
+    (atBottom) => (atBottom || followOutputRef.current ? 'auto' : false),
+    [],
+  )
 
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleMessagesScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 mb-4 min-h-0 min-w-0 pr-1"
-      >
-        {loading && (
+      <div className="relative mb-4 min-h-0 min-w-0 flex-1">
+        {loading && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Loader2 className="size-6 mb-2 animate-spin" />
             <p className="text-sm">Loading session...</p>
@@ -472,7 +464,30 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
           </div>
         )}
 
-        {messages.map((message) => <MessageRow key={message.id} message={message} />)}
+        {messages.length > 0 && (
+          <>
+            {loading && (
+              <div className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+                <Loader2 className="size-3 animate-spin" />
+                Refreshing
+              </div>
+            )}
+            <Virtuoso
+              className="h-full overflow-x-hidden pr-1"
+              data={messages}
+              computeItemKey={(_, message) => message.id}
+              initialTopMostItemIndex={messages.length - 1}
+              atBottomStateChange={handleAtBottomChange}
+              followOutput={followOutput}
+              increaseViewportBy={{ top: 480, bottom: 640 }}
+              itemContent={(_, message) => (
+                <div className="pb-4">
+                  <MessageRow message={message} />
+                </div>
+              )}
+            />
+          </>
+        )}
       </div>
 
       {stopReason && (
