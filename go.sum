@@ -269,8 +269,8 @@ github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3 h1:AZVcHb8kfrZ
 github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3/go.mod h1:vCfliLQ2i77gJShOzr7mmiwN2a1Px0Jm8scFPsH5JOI=
 github.com/lsongdev/miya-agents v0.0.0-20260718145839-699fe3eca91c h1:TGSr7vGpCEU7BIe3oN54JamwAmu56SkjdocQbBwfBzc=
 github.com/lsongdev/miya-agents v0.0.0-20260718145839-699fe3eca91c/go.mod h1:GE0xgGCUq77L4MpDASyVxeSS6DKM/A20bsoW0ElvGBw=
-github.com/lsongdev/miya-channels v0.0.0-20260720122625-94faf42d1630 h1:nRL/jPKP7zxZpSWlnenlhwdnZFVg2GHNIVqJoIMgmeo=
-github.com/lsongdev/miya-channels v0.0.0-20260720122625-94faf42d1630/go.mod h1:9JfrJ4QAtssk2tBI++ObJpSuJpXI0lC8d3d9tE8vNMg=
+github.com/lsongdev/miya-channels v0.0.0-20260720123549-4bd5810193ac h1:z6gPQJHzFxeS7EXUZJevsw0KS5WmsglSKYcOL0OnbEQ=
+github.com/lsongdev/miya-channels v0.0.0-20260720123549-4bd5810193ac/go.mod h1:9JfrJ4QAtssk2tBI++ObJpSuJpXI0lC8d3d9tE8vNMg=
 github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9 h1:zq0rUkLB0Q2rf3ndw2HngNaupfS+Ev+Vgi5WWgeOIL8=
 github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9/go.mod h1:hzoU65fDr/n158bgVzT8a9SxNao6v9WFbCHkZpRMT9M=
 github.com/lsongdev/wechatbot-go v0.0.0-20260324073854-535a867c66ad h1:92LoyhkbfMW0B+tcvVqjchL/EertaS6jMJlcjsH2LIU=
