@@ -4,8 +4,8 @@ import { useMiyaConfig } from '../context/MiyaConfigContext'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import {
-  CheckForUpdates,
-  ChannelsServiceStatus, DeleteSkill, FetchProviderModels, InstallSkill, ListSkills,
+  CheckForUpdates, ChannelsServiceStatus, DeleteSkill, FetchProviderModels,
+  InstallRegistrySkill, ListMCPRegistry, ListSkillRegistry, ListSkills,
   StartChannelsService, StartWeChatLogin, StopChannelsService,
 } from '../../bindings/wails-app/app'
 import { Events } from '@wailsio/runtime'
@@ -17,6 +17,7 @@ import {
 import {
   MoonIcon, SunIcon, Settings as SettingsIcon, Bot, Puzzle, Info, BookOpen,
   Plus, Trash2, Pencil, Check, X, Key, Radio, Loader2, ExternalLink,
+  ArrowLeft, Download, Search, Store,
 } from 'lucide-react'
 import miyaIcon from '../assets/images/miya-icon.png'
 
@@ -36,6 +37,11 @@ const channelTypes = [
   { id: 'feishu', label: 'Feishu' },
   { id: 'wechat', label: 'WeChat' },
   { id: 'wecom', label: 'WeCom' },
+]
+
+const providerTypes = [
+  { id: 'openai', label: 'OpenAI compatible' },
+  { id: 'anthropic', label: 'Anthropic' },
 ]
 
 const inputClass = 'h-8 text-sm'
@@ -86,6 +92,15 @@ function uniqueMcpServerId(form, servers, editing) {
   if (editing) return editing
   const source = form.command || form.url || 'mcp-server'
   const base = slugify(basename(source) || source || 'mcp-server') || 'mcp-server'
+  const used = new Set(Object.keys(servers || {}))
+  if (!used.has(base)) return base
+  let index = 2
+  while (used.has(`${base}-${index}`)) index += 1
+  return `${base}-${index}`
+}
+
+function uniqueRegistryServerId(candidate, servers) {
+  const base = slugify(candidate.id || candidate.name || 'mcp-server') || 'mcp-server'
   const used = new Set(Object.keys(servers || {}))
   if (!used.has(base)) return base
   let index = 2
@@ -545,8 +560,14 @@ function ProvidersSettings() {
     await saveConfig((prev) => {
       const providers = { ...(prev.providers || {}) }
       if (editing && editing !== id) delete providers[editing]
-      providers[id] = { type: form.type.trim() || 'openai', apiKey: form.apiKey.trim(), apiBase: form.apiBase.trim() }
-      return { ...prev, providers }
+      providers[id] = { type: form.type || 'openai', apiKey: form.apiKey.trim(), apiBase: form.apiBase.trim() }
+      const profiles = { ...(prev.profiles || {}) }
+      if (editing && editing !== id) {
+        Object.entries(profiles).forEach(([profileID, profile]) => {
+          if (profile?.provider === editing) profiles[profileID] = { ...profile, provider: id }
+        })
+      }
+      return { ...prev, providers, profiles }
     })
     handleCancel()
   }
@@ -560,8 +581,16 @@ function ProvidersSettings() {
 
   const editor = (
     <div className="space-y-2">
-      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Provider ID" className={inputClass} autoFocus />
-      <Input value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} placeholder="Type: openai or anthropic" className={monoInputClass} />
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-muted-foreground">Provider Name</span>
+        <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="OpenAI, DeepSeek, etc." className={inputClass} autoFocus />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-muted-foreground">Provider Type</span>
+        <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))} className={`${selectClass} w-full`}>
+          {providerTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+        </select>
+      </label>
       <Input value={form.apiKey} onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))} placeholder="API Key" type="password" className={monoInputClass} />
       <Input value={form.apiBase} onChange={(e) => setForm((f) => ({ ...f, apiBase: e.target.value }))} placeholder="API Base URL" className={monoInputClass} />
       <div className="flex gap-1.5">
@@ -613,9 +642,15 @@ function McpSettings() {
   const [editing, setEditing] = useState(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ id: '', type: 'stdio', command: '', args: '', env: '', url: '', headers: '' })
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false)
+  const [marketplaceQuery, setMarketplaceQuery] = useState('')
+  const [marketplaceServers, setMarketplaceServers] = useState([])
+  const [marketplaceLoading, setMarketplaceLoading] = useState(false)
+  const [marketplaceError, setMarketplaceError] = useState(null)
+  const [marketplaceConfigNotice, setMarketplaceConfigNotice] = useState('')
 
   const reset = () => setForm({ id: '', type: 'stdio', command: '', args: '', env: '', url: '', headers: '' })
-  const startAdd = () => { setAdding(true); setEditing(null); reset() }
+  const startAdd = () => { setAdding(true); setEditing(null); setMarketplaceConfigNotice(''); reset() }
   const startEdit = (server) => {
     setAdding(false)
     setEditing(server.id)
@@ -629,7 +664,7 @@ function McpSettings() {
       headers: keyValuesToText(server.headers),
     })
   }
-  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
+  const handleCancel = () => { setAdding(false); setEditing(null); setMarketplaceConfigNotice(''); reset() }
   const handleSave = async () => {
     if (form.type === 'stdio' && !form.command.trim()) return
     if (form.type !== 'stdio' && !form.url.trim()) return
@@ -647,6 +682,7 @@ function McpSettings() {
       }
       return { ...prev, mcpServers }
     })
+    setMarketplaceConfigNotice('')
     handleCancel()
   }
   const handleDelete = async (id) => {
@@ -655,6 +691,46 @@ function McpSettings() {
       delete mcpServers[id]
       return { ...prev, mcpServers }
     })
+  }
+
+  const loadMarketplace = async (query = marketplaceQuery) => {
+    setMarketplaceLoading(true)
+    setMarketplaceError(null)
+    try {
+      setMarketplaceServers(await ListMCPRegistry(query.trim()) || [])
+    } catch (err) {
+      setMarketplaceError(err?.toString?.() || String(err))
+    } finally {
+      setMarketplaceLoading(false)
+    }
+  }
+  const openMarketplace = () => {
+    setMarketplaceOpen(true)
+    if (marketplaceServers.length === 0) loadMarketplace('')
+  }
+  const installMarketplaceServer = async (candidate) => {
+    if (!candidate?.config) return
+    setMarketplaceLoading(true)
+    setMarketplaceError(null)
+    try {
+      let installedID = ''
+      await saveConfig((prev) => {
+        const mcpServers = { ...(prev.mcpServers || {}) }
+        installedID = uniqueRegistryServerId(candidate, mcpServers)
+        mcpServers[installedID] = candidate.config
+        return { ...prev, mcpServers }
+      })
+      const installed = { id: installedID, ...candidate.config }
+      setMarketplaceOpen(false)
+      if (candidate.requiredInputs?.length) {
+        setMarketplaceConfigNotice(`Complete the required values: ${candidate.requiredInputs.join(', ')}`)
+        startEdit(installed)
+      }
+    } catch (err) {
+      setMarketplaceError(err?.toString?.() || String(err))
+    } finally {
+      setMarketplaceLoading(false)
+    }
   }
 
   const editor = (
@@ -686,17 +762,75 @@ function McpSettings() {
     </div>
   )
 
+  if (marketplaceOpen) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader
+          title="MCP Marketplace"
+          description="Discover installable servers from the official MCP Registry."
+          action={(
+            <Button size="sm" variant="ghost" onClick={() => setMarketplaceOpen(false)}>
+              <ArrowLeft className="size-3.5 mr-1" /> Back
+            </Button>
+          )}
+        />
+        <form
+          className="flex gap-2 border-y py-3"
+          onSubmit={(event) => { event.preventDefault(); loadMarketplace() }}
+        >
+          <Input
+            value={marketplaceQuery}
+            onChange={(event) => setMarketplaceQuery(event.target.value)}
+            placeholder="Search MCP servers"
+            className={inputClass}
+            autoFocus
+          />
+          <Button type="submit" size="sm" variant="outline" disabled={marketplaceLoading}>
+            {marketplaceLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />}
+            <span className="sr-only">Search marketplace</span>
+          </Button>
+        </form>
+        <div className="divide-y border-y">
+          {!marketplaceLoading && marketplaceServers.map((server) => (
+            <div key={`${server.id}:${server.version}`} className="flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{server.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{server.description || 'No description'}</p>
+                <p className="mt-1 truncate text-xs font-mono text-muted-foreground">
+                  {server.installLabel}{server.version ? ` / ${server.version}` : ''}
+                  {server.requiredInputs?.length ? ` / configure ${server.requiredInputs.length} value${server.requiredInputs.length === 1 ? '' : 's'}` : ''}
+                </p>
+              </div>
+              <Button size="sm" onClick={() => installMarketplaceServer(server)} disabled={marketplaceLoading || saving}>
+                <Download className="size-3.5 mr-1" /> Install
+              </Button>
+            </div>
+          ))}
+          {marketplaceLoading && <div className="py-10 text-center text-xs text-muted-foreground">Loading marketplace...</div>}
+          {!marketplaceLoading && marketplaceServers.length === 0 && <div className="py-10 text-center text-xs text-muted-foreground">No installable servers found</div>}
+        </div>
+        <ConfigError error={marketplaceError} />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <SectionHeader
         title="MCP Servers"
         description="Manage tool server connections."
         action={(
-          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
-            <Plus className="size-3.5 mr-1" /> Add Server
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={openMarketplace} disabled={adding || editing !== null}>
+              <Store className="size-3.5 mr-1" /> Marketplace
+            </Button>
+            <Button size="sm" onClick={startAdd} disabled={adding || editing !== null}>
+              <Plus className="size-3.5 mr-1" /> Add Server
+            </Button>
+          </div>
         )}
       />
+      {marketplaceConfigNotice && <p className="border-l-2 border-amber-500 pl-3 text-xs text-muted-foreground">{marketplaceConfigNotice}</p>}
       <div className="rounded-lg border bg-card divide-y">
         {servers.map((server) => (
           <div key={server.id} className="px-4 py-3">
@@ -724,14 +858,15 @@ function McpSettings() {
 
 function SkillsSettings() {
   const [skills, setSkills] = useState([])
+  const [registrySkills, setRegistrySkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [adding, setAdding] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', prompt: '' })
+  const [registryOpen, setRegistryOpen] = useState(false)
+  const [registryLoading, setRegistryLoading] = useState(false)
+  const [registryQuery, setRegistryQuery] = useState('')
+  const [installingSkill, setInstallingSkill] = useState(null)
 
-  const reset = () => setForm({ name: '', description: '', prompt: '' })
   const loadSkills = async () => {
     setLoading(true)
     setError(null)
@@ -744,36 +879,38 @@ function SkillsSettings() {
     }
   }
 
+  const loadRegistry = async (query = registryQuery) => {
+    setRegistryLoading(true)
+    setError(null)
+    try {
+      setRegistrySkills(await ListSkillRegistry(query.trim()) || [])
+    } catch (err) {
+      setError(err?.toString?.() || String(err))
+    } finally {
+      setRegistryLoading(false)
+    }
+  }
+
   useEffect(() => {
     loadSkills()
   }, [])
 
-  const startAdd = () => { setAdding(true); setEditing(null); reset() }
-  const startEdit = (skill) => {
-    setAdding(false)
-    setEditing(skill.name)
-    setForm({
-      name: skill.name || '',
-      description: skill.description || '',
-      prompt: skill.prompt || '',
-    })
+  const toggleRegistry = () => {
+    setRegistryOpen(true)
+    loadRegistry('')
   }
-  const handleCancel = () => { setAdding(false); setEditing(null); reset() }
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.prompt.trim()) return
+  const handleInstall = async (id) => {
     setSaving(true)
+    setInstallingSkill(id)
     setError(null)
     try {
-      if (editing && editing !== form.name.trim()) {
-        await DeleteSkill(editing)
-      }
-      await InstallSkill(form.name.trim(), form.description.trim(), form.prompt.trim())
-      await loadSkills()
-      handleCancel()
+      await InstallRegistrySkill(id)
+      await Promise.all([loadSkills(), loadRegistry()])
     } catch (err) {
       setError(err?.toString?.() || String(err))
     } finally {
       setSaving(false)
+      setInstallingSkill(null)
     }
   }
   const handleDelete = async (name) => {
@@ -788,25 +925,57 @@ function SkillsSettings() {
       setSaving(false)
     }
   }
+  const visibleRegistrySkills = registrySkills
 
-  const editor = (
-    <div className="space-y-2">
-      <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Skill name" className={inputClass} autoFocus />
-      <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Description" className={inputClass} />
-      <textarea
-        value={form.prompt}
-        onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
-        placeholder="Skill prompt"
-        className="min-h-56 w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
-      <div className="flex gap-1.5">
-        <Button size="sm" onClick={handleSave} disabled={!form.name.trim() || !form.prompt.trim() || saving}>
-          {saving ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Check className="size-3.5 mr-1" />} Save
-        </Button>
-        <Button size="sm" variant="ghost" onClick={handleCancel}><X className="size-3.5 mr-1" /> Cancel</Button>
+  if (registryOpen) {
+    return (
+      <div className="space-y-4">
+        <SectionHeader
+          title="Skills Registry"
+          description="Discover skills published for Miya agents."
+          action={(
+            <Button size="sm" variant="ghost" onClick={() => setRegistryOpen(false)}>
+              <ArrowLeft className="size-3.5 mr-1" /> Back
+            </Button>
+          )}
+        />
+        <form className="flex gap-2 border-y py-3" onSubmit={(event) => { event.preventDefault(); loadRegistry() }}>
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
+            <Input
+              value={registryQuery}
+              onChange={(event) => setRegistryQuery(event.target.value)}
+              placeholder="Search skills registry"
+              className="h-8 pl-8 text-sm"
+              autoFocus
+            />
+          </div>
+          <Button type="submit" size="sm" variant="outline" disabled={registryLoading || registryQuery.trim().length < 2}>
+            {registryLoading ? <Loader2 className="size-3.5 animate-spin" /> : <Search className="size-3.5" />}
+            <span className="sr-only">Search skills registry</span>
+          </Button>
+        </form>
+        <div className="divide-y border-y">
+          {registryLoading && <div className="py-10 text-center text-xs text-muted-foreground">Loading registry...</div>}
+          {!registryLoading && visibleRegistrySkills.map((skill) => (
+            <div key={skill.id} className="flex items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{skill.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{skill.description || 'No description'}</p>
+                {skill.source && <p className="mt-1 truncate text-xs font-mono text-muted-foreground">{skill.registry} / {skill.source}</p>}
+              </div>
+              <Button size="sm" variant={skill.installed ? 'outline' : 'default'} onClick={() => handleInstall(skill.id)} disabled={skill.installed || saving}>
+                {installingSkill === skill.id ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Download className="size-3.5 mr-1" />}
+                {skill.installed ? 'Installed' : 'Install'}
+              </Button>
+            </div>
+          ))}
+          {!registryLoading && visibleRegistrySkills.length === 0 && <div className="py-10 text-center text-xs text-muted-foreground">No skills found</div>}
+        </div>
+        <ConfigError error={error} />
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="space-y-4">
@@ -814,8 +983,8 @@ function SkillsSettings() {
         title="Skills"
         description="Manage prompt skills available to miya-agents."
         action={(
-          <Button size="sm" onClick={startAdd} disabled={adding || editing !== null || saving}>
-            <Plus className="size-3.5 mr-1" /> Add Skill
+          <Button size="sm" onClick={toggleRegistry} disabled={saving}>
+            <Store className="size-3.5 mr-1" /> Add Skill
           </Button>
         )}
       />
@@ -823,23 +992,17 @@ function SkillsSettings() {
         {loading && <div className="px-4 py-8 text-center text-xs text-muted-foreground">Loading skills...</div>}
         {!loading && skills.map((skill) => (
           <div key={skill.name} className="px-4 py-3">
-            {editing === skill.name ? editor : (
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">{skill.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{skill.description || 'No description'}</p>
-                  <p className="mt-1 text-xs text-muted-foreground font-mono truncate">{skill.path}</p>
-                </div>
-                <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                  <Button variant="ghost" size="icon-xs" onClick={() => startEdit(skill)}><Pencil className="size-3" /></Button>
-                  <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(skill.name)} disabled={saving}><Trash2 className="size-3" /></Button>
-                </div>
+            <div className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="font-medium text-sm">{skill.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{skill.description || 'No description'}</p>
+                <p className="mt-1 text-xs text-muted-foreground font-mono truncate">{skill.path}</p>
               </div>
-            )}
+              <Button variant="ghost" size="icon-xs" onClick={() => handleDelete(skill.name)} disabled={saving}><Trash2 className="size-3" /></Button>
+            </div>
           </div>
         ))}
-        {!loading && skills.length === 0 && !adding && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No skills installed</div>}
-        {adding && <div className="px-4 py-3">{editor}</div>}
+        {!loading && skills.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">No skills installed</div>}
       </div>
       <ConfigError error={error} />
     </div>

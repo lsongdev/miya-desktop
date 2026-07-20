@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useMiyaConfig } from '@/context/MiyaConfigContext'
-import { FetchProviderModelsFromConfig } from '../../bindings/wails-app/app'
+import { FetchProviderModelsFromConfig, InitializeDefaultWorkspace } from '../../bindings/wails-app/app'
 import miyaIcon from '@/assets/images/miya-icon.png'
 
 export default function Welcome() {
@@ -34,6 +34,7 @@ export default function Welcome() {
     setFormError('')
     const providerID = providerName.trim()
     try {
+      await InitializeDefaultWorkspace()
       await saveConfig({
         agents: [],
         providers: {

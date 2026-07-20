@@ -8,6 +8,8 @@ export {
 
 export {
     AttachmentData,
+    MCPRegistryServerInfo,
+    RegistrySkillInfo,
     SkillInfo,
     UpdateCheckResult
 } from "./models.js";

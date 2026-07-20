@@ -111,6 +111,16 @@ export function InitializeAgent(name: string, version: string): $CancellableProm
     });
 }
 
+export function InitializeDefaultWorkspace(): $CancellablePromise<void> {
+    return $Call.ByID(3915969153);
+}
+
+export function InstallRegistrySkill(id: string): $CancellablePromise<$models.SkillInfo> {
+    return $Call.ByID(1026722196, id).then(($result: any) => {
+        return $$createType10($result);
+    });
+}
+
 export function InstallSkill(name: string, description: string, prompt: string): $CancellablePromise<$models.SkillInfo> {
     return $Call.ByID(1305298693, name, description, prompt).then(($result: any) => {
         return $$createType10($result);
@@ -123,21 +133,33 @@ export function ListAgentSessions(): $CancellablePromise<agent$0.Session[]> {
     });
 }
 
+export function ListMCPRegistry(query: string): $CancellablePromise<$models.MCPRegistryServerInfo[]> {
+    return $Call.ByID(2214390512, query).then(($result: any) => {
+        return $$createType13($result);
+    });
+}
+
 export function ListSessions(): $CancellablePromise<agent$0.Session[]> {
     return $Call.ByID(827108744).then(($result: any) => {
         return $$createType11($result);
     });
 }
 
+export function ListSkillRegistry(query: string): $CancellablePromise<$models.RegistrySkillInfo[]> {
+    return $Call.ByID(2408825929, query).then(($result: any) => {
+        return $$createType15($result);
+    });
+}
+
 export function ListSkills(): $CancellablePromise<$models.SkillInfo[]> {
     return $Call.ByID(1140726611).then(($result: any) => {
-        return $$createType12($result);
+        return $$createType16($result);
     });
 }
 
 export function LoadMiyaConfig(): $CancellablePromise<config$0.Config | null> {
     return $Call.ByID(3087674083).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType18($result);
     });
 }
 
@@ -159,7 +181,7 @@ export function OpenAttachment(target: string): $CancellablePromise<void> {
 
 export function ReadAttachment(target: string, maxBytes: number): $CancellablePromise<$models.AttachmentData | null> {
     return $Call.ByID(4083110208, target, maxBytes).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType20($result);
     });
 }
 
@@ -208,8 +230,12 @@ const $$createType8 = agent$0.AgentInfo.createFrom;
 const $$createType9 = $Create.Nullable($$createType8);
 const $$createType10 = $models.SkillInfo.createFrom;
 const $$createType11 = $Create.Array($$createType3);
-const $$createType12 = $Create.Array($$createType10);
-const $$createType13 = config$1.Config.createFrom;
-const $$createType14 = $Create.Nullable($$createType13);
-const $$createType15 = $models.AttachmentData.createFrom;
-const $$createType16 = $Create.Nullable($$createType15);
+const $$createType12 = $models.MCPRegistryServerInfo.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = $models.RegistrySkillInfo.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = $Create.Array($$createType10);
+const $$createType17 = config$1.Config.createFrom;
+const $$createType18 = $Create.Nullable($$createType17);
+const $$createType19 = $models.AttachmentData.createFrom;
+const $$createType20 = $Create.Nullable($$createType19);

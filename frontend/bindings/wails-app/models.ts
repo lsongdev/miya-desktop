@@ -5,6 +5,10 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as mcp$0 from "../github.com/lsongdev/miya-agents/mcp/models.js";
+
 export class AttachmentData {
     "name": string;
     "mimeType": string;
@@ -35,6 +39,86 @@ export class AttachmentData {
     static createFrom($$source: any = {}): AttachmentData {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new AttachmentData($$parsedSource as Partial<AttachmentData>);
+    }
+}
+
+export class MCPRegistryServerInfo {
+    "id": string;
+    "name": string;
+    "description"?: string;
+    "version"?: string;
+    "installLabel": string;
+    "requiredInputs"?: string[];
+    "config": mcp$0.McpServerConfig | null;
+
+    /** Creates a new MCPRegistryServerInfo instance. */
+    constructor($$source: Partial<MCPRegistryServerInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("installLabel" in $$source)) {
+            this["installLabel"] = "";
+        }
+        if (!("config" in $$source)) {
+            this["config"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new MCPRegistryServerInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): MCPRegistryServerInfo {
+        const $$createField5_0 = $$createType0;
+        const $$createField6_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("requiredInputs" in $$parsedSource) {
+            $$parsedSource["requiredInputs"] = $$createField5_0($$parsedSource["requiredInputs"]);
+        }
+        if ("config" in $$parsedSource) {
+            $$parsedSource["config"] = $$createField6_0($$parsedSource["config"]);
+        }
+        return new MCPRegistryServerInfo($$parsedSource as Partial<MCPRegistryServerInfo>);
+    }
+}
+
+export class RegistrySkillInfo {
+    "id": string;
+    "name": string;
+    "description"?: string;
+    "source"?: string;
+    "registry": string;
+    "version"?: string;
+    "installed": boolean;
+
+    /** Creates a new RegistrySkillInfo instance. */
+    constructor($$source: Partial<RegistrySkillInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("registry" in $$source)) {
+            this["registry"] = "";
+        }
+        if (!("installed" in $$source)) {
+            this["installed"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new RegistrySkillInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): RegistrySkillInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new RegistrySkillInfo($$parsedSource as Partial<RegistrySkillInfo>);
     }
 }
 
@@ -97,3 +181,8 @@ export class UpdateCheckResult {
         return new UpdateCheckResult($$parsedSource as Partial<UpdateCheckResult>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = mcp$0.McpServerConfig.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);

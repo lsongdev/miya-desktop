@@ -93,6 +93,9 @@ func (a *App) startup(ctx context.Context) {
 	a.config = miyaconfig.NewService()
 	a.manager = agent.New(ctx, a.config.Load, a.emit)
 	a.channels = channelservice.NewService(a.config.Load, a.emit)
+	if err := a.ensureBundledDesktopSkill(); err != nil {
+		log.Printf("[skills] install bundled desktop skill: %v", err)
+	}
 	hasConfig := a.config.Exists()
 	cfg, err := a.config.Load()
 	if err != nil {
