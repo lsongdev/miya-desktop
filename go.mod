@@ -4,7 +4,7 @@ go 1.26.1
 
 require (
 	github.com/lsongdev/miya-agents v0.0.0-20260718145839-699fe3eca91c
-	github.com/lsongdev/miya-channels v0.0.0-20260718145945-0bc0414bec9f
+	github.com/lsongdev/miya-channels v0.0.0-20260720122625-94faf42d1630
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.102
 )
 
