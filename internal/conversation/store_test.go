@@ -141,11 +141,13 @@ func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	}`))
 	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call",
-		"toolCallId": "tc-1",
-		"title": "Read",
-		"kind": "read",
-		"status": "pending",
-		"content": []
+		"toolCall": {
+			"toolCallId": "tc-1",
+			"title": "Read",
+			"kind": "read",
+			"status": "pending",
+			"content": []
+		}
 	}`))
 
 	msgs := snap.Conversation.Messages
@@ -195,17 +197,21 @@ func TestStoreMergesToolUpdates(t *testing.T) {
 
 	store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call",
-		"toolCallId": "tc-1",
-		"title": "Read",
-		"kind": "read",
-		"status": "pending",
-		"content": []
+		"toolCall": {
+			"toolCallId": "tc-1",
+			"title": "Read",
+			"kind": "read",
+			"status": "pending",
+			"content": []
+		}
 	}`))
 	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call_update",
-		"toolCallId": "tc-1",
-		"status": "completed",
-		"rawOutput": {"ok": true}
+		"toolCallUpdate": {
+			"toolCallId": "tc-1",
+			"status": "completed",
+			"rawOutput": {"ok": true}
+		}
 	}`))
 
 	tool := snap.Conversation.Messages[0].Blocks[0].Tool
@@ -257,9 +263,13 @@ func testStore() *Store {
 
 func mustEvent(t *testing.T, raw string) *acpadapter.Event {
 	t.Helper()
-	event, err := acpadapter.ParseUpdate(json.RawMessage(raw))
+	var update acp.SessionUpdate
+	if err := json.Unmarshal([]byte(raw), &update); err != nil {
+		t.Fatalf("decode SessionUpdate error: %v", err)
+	}
+	event, err := acpadapter.ParseSessionUpdate(update)
 	if err != nil {
-		t.Fatalf("ParseUpdate error: %v", err)
+		t.Fatalf("ParseSessionUpdate error: %v", err)
 	}
 	return event
 }

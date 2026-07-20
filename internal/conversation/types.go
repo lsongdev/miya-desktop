@@ -1,10 +1,6 @@
 package conversation
 
-import (
-	"encoding/json"
-
-	"github.com/lsongdev/miya-agents/acp"
-)
+import "github.com/lsongdev/miya-agents/acp"
 
 const (
 	RoleUser      = "user"
@@ -59,17 +55,16 @@ type Message struct {
 }
 
 type Block struct {
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Content string          `json:"content,omitempty"`
-	Data    string          `json:"data,omitempty"`
-	Mime    string          `json:"mime,omitempty"`
-	URI     string          `json:"uri,omitempty"`
-	Name    string          `json:"name,omitempty"`
-	Size    int             `json:"size,omitempty"`
-	Tool    *acp.ToolCall   `json:"tool,omitempty"`
-	Plan    *acp.Plan       `json:"plan,omitempty"`
-	Raw     json.RawMessage `json:"raw,omitempty"`
+	ID      string        `json:"id"`
+	Type    string        `json:"type"`
+	Content string        `json:"content,omitempty"`
+	Data    string        `json:"data,omitempty"`
+	Mime    string        `json:"mime,omitempty"`
+	URI     string        `json:"uri,omitempty"`
+	Name    string        `json:"name,omitempty"`
+	Size    int           `json:"size,omitempty"`
+	Tool    *acp.ToolCall `json:"tool,omitempty"`
+	Plan    *acp.Plan     `json:"plan,omitempty"`
 }
 
 type Snapshot struct {

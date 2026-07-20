@@ -1,4 +1,4 @@
-import { memo, startTransition, useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import { Button } from '@/components/ui/button'
 import SessionList from '@/components/SessionList'
@@ -312,8 +312,6 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   const [error, setError] = useState(null)
   const loadedRef = useRef(false)
   const inputRef = useRef(null)
-  const pendingConversationRef = useRef(null)
-  const conversationTimerRef = useRef(null)
   const followOutputRef = useRef(true)
 
   useEffect(() => {
@@ -359,26 +357,12 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
   }, [shouldLoad, sessionId, session?.cwd, onLoadComplete])
 
   useEffect(() => {
-    const flushConversation = () => {
-      conversationTimerRef.current = null
-      const next = pendingConversationRef.current
-      pendingConversationRef.current = null
-      if (next) {
-        startTransition(() => {
-          setConversation((previous) => reconcileConversation(previous, next))
-        })
-      }
-    }
-
     const cleanup = Events.On('conversation:update', (event) => {
       try {
         const snapshot = event?.data ?? event
         const next = snapshot?.conversation
         if (next?.id !== sessionId && next?.acpSessionId !== sessionId) return
-        pendingConversationRef.current = next
-        if (conversationTimerRef.current === null) {
-          conversationTimerRef.current = window.setTimeout(flushConversation, 50)
-        }
+        setConversation((previous) => reconcileConversation(previous, next))
         if (snapshot.stopReason) setStopReason(snapshot.stopReason)
       } catch (err) {
         console.error('Failed to handle conversation update', err)
@@ -387,11 +371,6 @@ function ChatWindow({ sessionId, session, shouldLoad, onLoadComplete }) {
 
     return () => {
       cleanup()
-      if (conversationTimerRef.current !== null) {
-        window.clearTimeout(conversationTimerRef.current)
-        conversationTimerRef.current = null
-      }
-      pendingConversationRef.current = null
     }
   }, [sessionId])
 

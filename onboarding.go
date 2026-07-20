@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed defaults/AGENTS.md defaults/SKILL.md skills/registry.json
+//go:embed defaults/AGENTS.md defaults/SKILL.md
 var desktopDefaults embed.FS
 
 func (a *App) InitializeDefaultWorkspace() error {

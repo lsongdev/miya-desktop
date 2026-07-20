@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,7 +16,7 @@ import (
 )
 
 const (
-	defaultSkillsRegistryURL = "https://raw.githubusercontent.com/lsongdev/miya-desktop/master/skills/registry.json"
+	defaultSkillsRegistryURL = "https://raw.githubusercontent.com/lsongdev/skills/master/registry.json"
 	defaultSkillHubURL       = "https://agentskillhub.dev/api/v1"
 	defaultMCPRegistryURL    = "https://registry.modelcontextprotocol.io/v0.1/servers"
 	registryResponseLimit    = 8 << 20
@@ -364,15 +363,11 @@ func (a *App) ListMCPRegistry(query string) ([]MCPRegistryServerInfo, error) {
 
 func loadSkillRegistry() (*skillRegistryManifest, error) {
 	var manifest skillRegistryManifest
-	if err := fetchJSON(defaultSkillsRegistryURL, &manifest); err == nil && manifest.Version == 1 {
-		return &manifest, nil
+	if err := fetchJSON(defaultSkillsRegistryURL, &manifest); err != nil {
+		return nil, fmt.Errorf("load skills registry: %w", err)
 	}
-	data, err := fs.ReadFile(desktopDefaults, "skills/registry.json")
-	if err != nil {
-		return nil, fmt.Errorf("read bundled skill registry: %w", err)
-	}
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return nil, fmt.Errorf("decode bundled skill registry: %w", err)
+	if manifest.Version != 1 {
+		return nil, fmt.Errorf("unsupported skills registry version %d", manifest.Version)
 	}
 	return &manifest, nil
 }

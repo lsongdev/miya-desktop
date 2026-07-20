@@ -13,7 +13,6 @@ Use this skill when the user asks how Miya Desktop is configured, wants a settin
 - `~/.miya/workspace`: default workspace and its `AGENTS.md` instructions.
 - `~/.miya/skills`: user-installed skills. Each directory contains a `SKILL.md` and optional supporting files.
 - `~/.miya/sessions`: persisted sessions.
-- `~/.miya/cache/conversations`: Desktop conversation snapshots used for fast session display.
 - `~/.miya/logs`: runtime logs.
 
 ## Configuration Model
@@ -33,4 +32,4 @@ When renaming a provider, update every profile that references the old provider 
 3. Never invent or reveal API keys, tokens, passwords, or authorization headers.
 4. Keep valid JSON with two-space indentation.
 5. Prefer the Desktop Settings UI for ordinary changes. Edit the file directly only when the UI cannot express the requested configuration.
-6. Do not delete session, cache, workspace, or log data unless the user explicitly asks.
+6. Do not delete session, workspace, or log data unless the user explicitly asks.

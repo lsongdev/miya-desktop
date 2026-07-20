@@ -186,20 +186,20 @@ func (s *Store) applyACPEventLocked(sessionID string, event *acpadapter.Event) {
 		s.applyContentChunkLocked(conv, role, blockType, event, now)
 	case "agent_thought_chunk":
 		msg := s.currentAssistantMessageLocked(conv, now)
-		s.appendOrMergeTextBlockLocked(msg, BlockThought, event.Content.Thought, event.Raw)
+		s.appendOrMergeTextBlockLocked(msg, BlockThought, event.Content.Thought)
 	case "tool_call":
 		if event.Tool != nil {
 			msg := s.currentAssistantMessageLocked(conv, now)
-			s.upsertToolBlockLocked(msg, event.Tool, event.Raw)
+			s.upsertToolBlockLocked(msg, event.Tool)
 		}
 	case "tool_call_update":
 		if event.Tool != nil {
-			s.updateToolBlockLocked(conv, event.Tool, event.Raw, now)
+			s.updateToolBlockLocked(conv, event.Tool, now)
 		}
 	case "plan":
 		if event.Plan != nil {
 			msg := s.currentAssistantMessageLocked(conv, now)
-			s.upsertPlanBlockLocked(msg, event.Plan, event.Raw)
+			s.upsertPlanBlockLocked(msg, event.Plan)
 		}
 	case "usage_update":
 		conv.Usage = event.Usage
@@ -232,7 +232,7 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 	msg := s.messageForChunkLocked(conv, role, event.Content.MessageID, now)
 	switch event.Content.Type {
 	case "text":
-		s.appendOrMergeTextBlockLocked(msg, blockType, event.Content.Content, event.Raw)
+		s.appendOrMergeTextBlockLocked(msg, blockType, event.Content.Content)
 	case "image":
 		msg.Blocks = append(msg.Blocks, Block{
 			ID:   s.nextIDStringLocked("block"),
@@ -242,7 +242,6 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 			URI:  event.Content.URI,
 			Name: event.Content.Name,
 			Size: event.Content.Size,
-			Raw:  cloneRaw(event.Raw),
 		})
 	case "audio":
 		msg.Blocks = append(msg.Blocks, Block{
@@ -253,7 +252,6 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 			URI:  event.Content.URI,
 			Name: event.Content.Name,
 			Size: event.Content.Size,
-			Raw:  cloneRaw(event.Raw),
 		})
 	case "resource", "resource_link":
 		msg.Blocks = append(msg.Blocks, Block{
@@ -265,7 +263,6 @@ func (s *Store) applyContentChunkLocked(conv *Conversation, role, blockType stri
 			URI:     event.Content.URI,
 			Name:    event.Content.Name,
 			Size:    event.Content.Size,
-			Raw:     cloneRaw(event.Raw),
 		})
 	}
 	msg.UpdatedAt = now
@@ -318,7 +315,7 @@ func (s *Store) currentAssistantMessageLocked(conv *Conversation, now string) *M
 	return &conv.Messages[len(conv.Messages)-1]
 }
 
-func (s *Store) appendOrMergeTextBlockLocked(msg *Message, blockType, text string, raw []byte) {
+func (s *Store) appendOrMergeTextBlockLocked(msg *Message, blockType, text string) {
 	if text == "" {
 		return
 	}
@@ -326,7 +323,6 @@ func (s *Store) appendOrMergeTextBlockLocked(msg *Message, blockType, text strin
 		last := &msg.Blocks[len(msg.Blocks)-1]
 		if last.Type == blockType {
 			last.Content += text
-			last.Raw = cloneRaw(raw)
 			return
 		}
 	}
@@ -334,16 +330,14 @@ func (s *Store) appendOrMergeTextBlockLocked(msg *Message, blockType, text strin
 		ID:      s.nextIDStringLocked("block"),
 		Type:    blockType,
 		Content: text,
-		Raw:     cloneRaw(raw),
 	})
 }
 
-func (s *Store) upsertToolBlockLocked(msg *Message, tool *acp.ToolCall, raw []byte) {
+func (s *Store) upsertToolBlockLocked(msg *Message, tool *acp.ToolCall) {
 	for i := range msg.Blocks {
 		block := &msg.Blocks[i]
 		if block.Type == BlockToolCall && block.Tool != nil && block.Tool.ToolCallID == tool.ToolCallID {
 			block.Tool = mergeTool(block.Tool, tool)
-			block.Raw = cloneRaw(raw)
 			return
 		}
 	}
@@ -351,33 +345,30 @@ func (s *Store) upsertToolBlockLocked(msg *Message, tool *acp.ToolCall, raw []by
 		ID:   s.nextIDStringLocked("block"),
 		Type: BlockToolCall,
 		Tool: cloneTool(tool),
-		Raw:  cloneRaw(raw),
 	})
 }
 
-func (s *Store) updateToolBlockLocked(conv *Conversation, tool *acp.ToolCall, raw []byte, now string) {
+func (s *Store) updateToolBlockLocked(conv *Conversation, tool *acp.ToolCall, now string) {
 	for mi := range conv.Messages {
 		msg := &conv.Messages[mi]
 		for bi := range msg.Blocks {
 			block := &msg.Blocks[bi]
 			if block.Type == BlockToolCall && block.Tool != nil && block.Tool.ToolCallID == tool.ToolCallID {
 				block.Tool = mergeTool(block.Tool, tool)
-				block.Raw = cloneRaw(raw)
 				msg.UpdatedAt = now
 				return
 			}
 		}
 	}
 	msg := s.currentAssistantMessageLocked(conv, now)
-	s.upsertToolBlockLocked(msg, tool, raw)
+	s.upsertToolBlockLocked(msg, tool)
 }
 
-func (s *Store) upsertPlanBlockLocked(msg *Message, plan *acp.Plan, raw []byte) {
+func (s *Store) upsertPlanBlockLocked(msg *Message, plan *acp.Plan) {
 	for i := range msg.Blocks {
 		block := &msg.Blocks[i]
 		if block.Type == BlockPlan {
 			block.Plan = plan
-			block.Raw = cloneRaw(raw)
 			return
 		}
 	}
@@ -385,7 +376,6 @@ func (s *Store) upsertPlanBlockLocked(msg *Message, plan *acp.Plan, raw []byte) 
 		ID:   s.nextIDStringLocked("block"),
 		Type: BlockPlan,
 		Plan: plan,
-		Raw:  cloneRaw(raw),
 	})
 }
 
@@ -432,7 +422,6 @@ func cloneConversation(conv Conversation) Conversation {
 		conv.Messages[i].Blocks = append([]Block(nil), conv.Messages[i].Blocks...)
 		for j := range conv.Messages[i].Blocks {
 			block := &conv.Messages[i].Blocks[j]
-			block.Raw = cloneRaw(block.Raw)
 			block.Tool = cloneTool(block.Tool)
 		}
 	}

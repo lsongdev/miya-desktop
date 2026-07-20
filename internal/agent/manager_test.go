@@ -28,48 +28,6 @@ func TestConnectEndpointRejectsIDsThatBreakSessionKeys(t *testing.T) {
 	}
 }
 
-func TestShouldEmitConversationUpdateThrottlesPerSession(t *testing.T) {
-	manager := New(context.Background(), nil, nil)
-
-	if !manager.shouldEmitConversationUpdate("s1") {
-		t.Fatal("first update should be emitted")
-	}
-	if manager.shouldEmitConversationUpdate("s1") {
-		t.Fatal("immediate repeated update should be throttled")
-	}
-	if !manager.shouldEmitConversationUpdate("s2") {
-		t.Fatal("a different session should be emitted independently")
-	}
-}
-
-func TestGetConversationHydratesPersistentCache(t *testing.T) {
-	manager := New(context.Background(), nil, nil)
-	manager.cache = conversation.NewCache(t.TempDir())
-	want := conversation.Conversation{
-		ID: "agent:session",
-		Messages: []conversation.Message{{
-			ID:     "message-1",
-			Role:   conversation.RoleAssistant,
-			Status: conversation.MessageComplete,
-			Blocks: []conversation.Block{{ID: "block-1", Type: conversation.BlockText, Content: "cached"}},
-		}},
-	}
-	if err := manager.cache.Save(want); err != nil {
-		t.Fatalf("Save() error = %v", err)
-	}
-
-	got, err := manager.GetConversation(want.ID)
-	if err != nil {
-		t.Fatalf("GetConversation() error = %v", err)
-	}
-	if got == nil || len(got.Messages) != 1 || got.Messages[0].Blocks[0].Content != "cached" {
-		t.Fatalf("GetConversation() = %#v", got)
-	}
-	if !manager.store.HasMessages(want.ID) {
-		t.Fatal("cached conversation was not hydrated into the active store")
-	}
-}
-
 func TestStoreForUpdateUsesReplayStoreAndBatchesProgress(t *testing.T) {
 	manager := New(context.Background(), nil, nil)
 	replayStore := conversation.NewStore()
@@ -88,5 +46,16 @@ func TestStoreForUpdateUsesReplayStoreAndBatchesProgress(t *testing.T) {
 	got, emit = manager.storeForUpdate("agent:session")
 	if got != replayStore || emit {
 		t.Fatalf("cached replay update = (%p, %v), want (%p, false)", got, emit, replayStore)
+	}
+}
+
+func TestStoreForUpdateEmitsEveryLiveUpdate(t *testing.T) {
+	manager := New(context.Background(), nil, nil)
+
+	for range 2 {
+		store, emit := manager.storeForUpdate("agent:session")
+		if store != manager.store || !emit {
+			t.Fatalf("live update = (%p, %v), want (%p, true)", store, emit, manager.store)
+		}
 	}
 }

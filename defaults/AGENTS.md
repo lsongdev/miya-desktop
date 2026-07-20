@@ -35,10 +35,9 @@ Miya runtime data normally lives under `~/.miya/`:
 - `~/.miya/workspace`: default workspace and this `AGENTS.md`.
 - `~/.miya/skills`: installed user skills.
 - `~/.miya/sessions`: persisted model context and replay events.
-- `~/.miya/cache/conversations`: Desktop conversation display cache.
 - `~/.miya/logs`: runtime logs.
 
-Do not delete or bulk-modify sessions, caches, logs, installed skills, or workspace content unless the user explicitly requests it. Do not confuse Desktop display caches with the authoritative session files.
+Do not delete or bulk-modify sessions, logs, installed skills, or workspace content unless the user explicitly requests it.
 
 ## Memory System
 
