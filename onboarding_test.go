@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -30,5 +31,19 @@ func TestInstallEmbeddedFileIfMissingCreatesParents(t *testing.T) {
 	}
 	if _, err := os.Stat(destination); err != nil {
 		t.Fatalf("installed file: %v", err)
+	}
+}
+
+func TestBundledDesktopSkillUsesDefaultResource(t *testing.T) {
+	destination := filepath.Join(t.TempDir(), "skills", "miya-desktop", "SKILL.md")
+	if err := installEmbeddedFileIfMissing("defaults/SKILL.md", destination); err != nil {
+		t.Fatalf("installEmbeddedFileIfMissing() error = %v", err)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "name: miya-desktop") {
+		t.Fatalf("installed unexpected skill content: %q", data)
 	}
 }

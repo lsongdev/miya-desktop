@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-//go:embed defaults/AGENTS.md skills/registry.json skills/miya-desktop/SKILL.md
+//go:embed defaults/AGENTS.md defaults/SKILL.md skills/registry.json
 var desktopDefaults embed.FS
 
 func (a *App) InitializeDefaultWorkspace() error {
@@ -24,7 +24,7 @@ func (a *App) InitializeDefaultWorkspace() error {
 
 func (a *App) ensureBundledDesktopSkill() error {
 	return installEmbeddedFileIfMissing(
-		"skills/miya-desktop/SKILL.md",
+		"defaults/SKILL.md",
 		filepath.Join(a.SkillsDirectory(), "miya-desktop", "SKILL.md"),
 	)
 }
