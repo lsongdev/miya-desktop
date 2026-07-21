@@ -28,21 +28,6 @@ func TestConnectEndpointRejectsIDsThatBreakSessionKeys(t *testing.T) {
 	}
 }
 
-func TestClosedSessionStateIsScopedAndInMemory(t *testing.T) {
-	manager := New(context.Background(), nil, nil)
-	manager.closedSessions["opencode:session-1"] = struct{}{}
-
-	if !manager.IsSessionClosed("opencode:session-1") {
-		t.Fatal("IsSessionClosed returned false for a closed session")
-	}
-	if manager.IsSessionClosed("builtin:session-1") {
-		t.Fatal("IsSessionClosed mixed sessions from different agents")
-	}
-	if New(context.Background(), nil, nil).IsSessionClosed("opencode:session-1") {
-		t.Fatal("closed session state persisted into a new manager")
-	}
-}
-
 func TestStoreForUpdateUsesReplayStoreAndBatchesProgress(t *testing.T) {
 	manager := New(context.Background(), nil, nil)
 	replayStore := conversation.NewStore()

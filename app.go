@@ -422,9 +422,6 @@ func (a *App) ListAgentSessions() ([]agent.Session, error) {
 			}
 			session.AgentCommand = commandString(endpoint)
 			session.Key = session.AgentID + ":" + session.ID
-			if a.manager.IsSessionClosed(session.Key) {
-				continue
-			}
 			sessions = append(sessions, session)
 		}
 	}
