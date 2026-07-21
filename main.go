@@ -25,6 +25,9 @@ var appIcon []byte
 var appVersion = "dev"
 
 func main() {
+	if err := configureExecutablePath(); err != nil {
+		log.Printf("[WARN] executable path setup failed: %v", err)
+	}
 	if err := logging.SetupFromDefaultConfig("miya-desktop"); err != nil {
 		log.Printf("[WARN] logging setup failed: %v", err)
 	}
