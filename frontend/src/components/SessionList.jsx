@@ -129,13 +129,17 @@ export default function SessionList({ activeSessionId, onSelectSession, onNewSes
   const handleClose = async (session, e) => {
     e.stopPropagation()
     setActionError(null)
+    const key = sessionKey(session)
+    const snapshot = sessions
+    setSessions((prev) => prev.filter((s) => sessionKey(s) !== key))
     try {
       await onBeforeSessionAction?.(session)
       await CloseSession(session.id)
-      await fetchSessions()
-      onSessionClosed?.(sessionKey(session))
+      onSessionClosed?.(key)
+      fetchSessions()
     } catch (err) {
       console.error('Close session error:', err)
+      setSessions(snapshot)
       setActionError(`Close failed: ${err?.toString() || err}`)
     }
   }

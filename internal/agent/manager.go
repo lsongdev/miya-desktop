@@ -56,6 +56,7 @@ type Manager struct {
 	replayMu       sync.Mutex
 	replays        map[string]*sessionReplay
 	loadedSessions map[string]bool
+	closedSessions map[string]struct{}
 }
 
 type sessionReplay struct {
@@ -75,6 +76,7 @@ func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmi
 		emit:           emit,
 		replays:        make(map[string]*sessionReplay),
 		loadedSessions: make(map[string]bool),
+		closedSessions: make(map[string]struct{}),
 	}
 }
 
@@ -409,6 +411,9 @@ func (m *Manager) NewSession(cwd string) (*Session, error) {
 	sessionID := string(resp.SessionID)
 	conversationID := m.scopedSessionID(sessionID)
 	log.Printf("[agent] NewSession created: id=%q", sessionID)
+	m.mu.Lock()
+	delete(m.closedSessions, conversationID)
+	m.mu.Unlock()
 	session := &Session{
 		ID:        sessionID,
 		Key:       conversationID,
@@ -492,6 +497,9 @@ func (m *Manager) ListSessions() ([]Session, error) {
 	for _, s := range resp.Sessions {
 		session := Session{ID: string(s.SessionID), Cwd: s.Cwd}
 		session.Key = m.scopedSessionID(session.ID)
+		if m.IsSessionClosed(session.Key) {
+			continue
+		}
 		session.AgentID = m.currentAgentID()
 		session.AgentName = m.currentAgentID()
 		if s.Title != nil {
@@ -522,9 +530,28 @@ func (m *Manager) CloseSession(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	_, acpSessionID := m.splitSessionRef(sessionID)
+	conversationID, acpSessionID := m.splitSessionRef(sessionID)
+	log.Printf("[agent] CloseSession: id=%q acp=%q", conversationID, acpSessionID)
 	_, err = client.CloseSession(&acp.CloseSessionRequest{SessionID: acp.SessionID(acpSessionID)})
-	return err
+	if err != nil {
+		log.Printf("[agent] CloseSession failed: %v", err)
+		return err
+	}
+	m.mu.Lock()
+	m.closedSessions[conversationID] = struct{}{}
+	delete(m.loadedSessions, conversationID)
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *Manager) IsSessionClosed(sessionID string) bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, closed := m.closedSessions[sessionID]
+	return closed
 }
 
 func (m *Manager) DeleteSession(sessionID string) error {
