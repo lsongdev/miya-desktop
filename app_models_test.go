@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	miyaconfig "wails-app/internal/config"
+	miyaconfig "miya-desktop/internal/config"
 )
 
 func TestFetchProviderModelsFromConfig(t *testing.T) {

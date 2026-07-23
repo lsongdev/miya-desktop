@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
-	"wails-app/internal/agent"
-	"wails-app/internal/agentclient"
-	channelservice "wails-app/internal/channels"
-	miyaconfig "wails-app/internal/config"
+	"miya-desktop/internal/agent"
+	"miya-desktop/internal/agentclient"
+	channelservice "miya-desktop/internal/channels"
+	miyaconfig "miya-desktop/internal/config"
 
 	"github.com/lsongdev/miya-agents/acp"
 	"github.com/lsongdev/miya-agents/anthropic"
@@ -177,11 +177,6 @@ func isReleaseVersion(version string) bool {
 		}
 	}
 	return true
-}
-
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
 func (a *App) OpenAttachment(target string) error {

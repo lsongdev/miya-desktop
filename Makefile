@@ -16,12 +16,12 @@ export VITE_APP_VERSION := $(APP_VERSION)
 .PHONY: build build-macos build-macos-arm64 build-windows run dev clean install generate-icons version
 
 build:
-	cd frontend && npm run build
+	cd frontend && pnpm run build
 	mkdir -p $(BIN_DIR)
 	go build -ldflags "$(GO_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME) .
 
 build-macos:
-	cd frontend && npm install && npm run build
+	cd frontend && pnpm install && pnpm run build
 	mkdir -p $(MAC_APP)/Contents/MacOS $(MAC_APP)/Contents/Resources
 	$(MAC_GOENV) go build -ldflags "$(GO_LDFLAGS)" -o $(MAC_APP)/Contents/MacOS/$(APP_NAME) .
 	cp build/darwin/Info.plist $(MAC_PLIST)
@@ -34,7 +34,7 @@ build-macos-arm64:
 	$(MAKE) build-macos APP_VERSION=$(APP_VERSION) MAC_APP=$(BIN_DIR)/Miya-arm64.app MAC_GOENV="GOOS=darwin GOARCH=arm64 CGO_ENABLED=1"
 
 build-windows:
-	cd frontend && npm install && npm run build
+	cd frontend && pnpm install && pnpm run build
 	mkdir -p $(BIN_DIR)
 	node scripts/windows-info.mjs $(WINDOWS_INFO) $(APP_VERSION)
 	node scripts/windows-manifest.mjs $(WINDOWS_MANIFEST) $(APP_VERSION)
@@ -43,7 +43,7 @@ build-windows:
 	rm -f $(WINDOWS_SYSO) $(WINDOWS_INFO) $(WINDOWS_MANIFEST)
 
 install:
-	cd frontend && npm install
+	cd frontend && pnpm install
 
 dev:
 	$(WAILS3) dev -config ./build/config.yml

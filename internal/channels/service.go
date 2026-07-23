@@ -7,8 +7,8 @@ import (
 	"log"
 	"sync"
 
-	"wails-app/internal/agentclient"
-	miyaconfig "wails-app/internal/config"
+	"miya-desktop/internal/agentclient"
+	miyaconfig "miya-desktop/internal/config"
 
 	"github.com/lsongdev/miya-agents/acp"
 	channelapp "github.com/lsongdev/miya-channels/app"

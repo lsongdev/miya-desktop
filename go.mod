@@ -1,4 +1,4 @@
-module wails-app
+module miya-desktop
 
 go 1.26.1
 

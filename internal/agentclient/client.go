@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	miyaconfig "wails-app/internal/config"
+	miyaconfig "miya-desktop/internal/config"
 
 	"github.com/lsongdev/miya-agents/acp"
 	miyaagent "github.com/lsongdev/miya-agents/agent"

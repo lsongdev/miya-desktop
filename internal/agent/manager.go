@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"wails-app/internal/acpadapter"
-	"wails-app/internal/agentclient"
-	miyaconfig "wails-app/internal/config"
-	"wails-app/internal/conversation"
+	"miya-desktop/internal/acpadapter"
+	"miya-desktop/internal/agentclient"
+	miyaconfig "miya-desktop/internal/config"
+	"miya-desktop/internal/conversation"
 
 	"github.com/lsongdev/miya-agents/acp"
 )

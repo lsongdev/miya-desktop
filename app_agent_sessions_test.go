@@ -7,8 +7,8 @@ import (
 
 	agentsconfig "github.com/lsongdev/miya-agents/config"
 	agentsession "github.com/lsongdev/miya-agents/session"
-	desktopagent "wails-app/internal/agent"
-	miyaconfig "wails-app/internal/config"
+	desktopagent "miya-desktop/internal/agent"
+	miyaconfig "miya-desktop/internal/config"
 )
 
 func TestListAgentSessionsGroupsBuiltinSessionsByBoundAgent(t *testing.T) {

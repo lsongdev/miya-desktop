@@ -312,10 +312,10 @@ function AgentsSettings() {
   const editor = (
     <div className="space-y-2">
       <div className="grid gap-2">
-        <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name" className={inputClass} autoFocus />
+        <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Display name: OpenCode" className={inputClass} autoFocus />
         <div className="grid gap-2 md:grid-cols-2">
-          <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command" className={monoInputClass} />
-          <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args" className={monoInputClass} />
+          <Input value={form.command} onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))} placeholder="Command: opencode" className={monoInputClass} />
+          <Input value={form.args} onChange={(e) => setForm((f) => ({ ...f, args: e.target.value }))} placeholder="Args: acp" className={monoInputClass} />
         </div>
       </div>
       <div className="flex gap-1.5">
@@ -456,7 +456,7 @@ function ProfilesSettings({ onSelectItem }) {
 
   const editor = (
     <div className="space-y-2">
-      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile ID" className={inputClass} autoFocus />
+      <Input value={form.id} onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))} placeholder="Profile Name" className={inputClass} autoFocus />
       <div className="flex gap-2">
         <select value={form.provider} onChange={(e) => handleProviderChange(e.target.value)} className={`${selectClass} flex-1`}>
           <option value="" disabled>{providers.length ? 'Select provider' : 'No providers configured'}</option>

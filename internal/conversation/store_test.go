@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"wails-app/internal/acpadapter"
+	"miya-desktop/internal/acpadapter"
 
 	"github.com/lsongdev/miya-agents/acp"
 )

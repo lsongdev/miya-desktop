@@ -15,11 +15,11 @@ import {
 import { Loader2, MessagesSquare, Settings as SettingsIcon } from 'lucide-react'
 import { ThemeProvider } from './context/ThemeContext';
 import { AgentProvider } from './context/AgentContext';
-import { ProviderProvider } from './context/ProviderContext';
 import { MiyaConfigProvider, useMiyaConfig } from './context/MiyaConfigContext';
 import { NavigationContext } from './hooks/useNavigate';
 import useDesktopNotifications from './hooks/useDesktopNotifications';
 import miyaIcon from './assets/images/miya-icon.png'
+import ErrorBoundary from './components/ErrorBoundary';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 import Welcome from './pages/Welcome';
@@ -122,12 +122,12 @@ function ConfigGate() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <ProviderProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
         <MiyaConfigProvider>
           <ConfigGate />
         </MiyaConfigProvider>
-      </ProviderProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }

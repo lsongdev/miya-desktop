@@ -1,12 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Events } from '@wailsio/runtime'
-import {
-  CheckNotificationAuthorization,
-  InitializeNotifications,
-  IsNotificationAvailable,
-  RequestNotificationAuthorization,
-  SendNotification,
-} from '../../wailsjs/runtime/runtime'
+
+const rt = () => window.runtime
 
 export const DESKTOP_NOTIFICATIONS_KEY = 'miya.desktopNotifications.enabled'
 export const DESKTOP_NOTIFICATIONS_EVENT = 'miya:desktop-notifications-changed'
@@ -117,7 +112,7 @@ async function sendDesktopNotification(options, initializedRef, initializingRef)
   try {
     const ready = await ensureNotificationsReady(initializedRef, initializingRef)
     if (!ready) return
-    await SendNotification(options)
+    await rt().SendNotification(options)
   } catch (err) {
     console.warn('Failed to send desktop notification', err)
   }
@@ -128,12 +123,12 @@ async function ensureNotificationsReady(initializedRef, initializingRef) {
   if (initializingRef.current) return initializingRef.current
 
   initializingRef.current = (async () => {
-    const available = await IsNotificationAvailable()
+    const available = await rt().IsNotificationAvailable()
     if (!available) return false
-    await InitializeNotifications()
-    let authorized = await CheckNotificationAuthorization()
+    await rt().InitializeNotifications()
+    let authorized = await rt().CheckNotificationAuthorization()
     if (!authorized) {
-      authorized = await RequestNotificationAuthorization()
+      authorized = await rt().RequestNotificationAuthorization()
     }
     initializedRef.current = Boolean(authorized)
     return initializedRef.current

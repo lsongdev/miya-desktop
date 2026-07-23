@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	miyaconfig "wails-app/internal/config"
-	"wails-app/internal/conversation"
+	miyaconfig "miya-desktop/internal/config"
+	"miya-desktop/internal/conversation"
 )
 
 func TestGetConversationMissingReturnsNil(t *testing.T) {

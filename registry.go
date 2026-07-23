@@ -17,7 +17,6 @@ import (
 
 const (
 	defaultSkillsRegistryURL = "https://raw.githubusercontent.com/lsongdev/skills/master/registry.json"
-	defaultSkillHubURL       = "https://agentskillhub.dev/api/v1"
 	defaultMCPRegistryURL    = "https://registry.modelcontextprotocol.io/v0.1/servers"
 	registryResponseLimit    = 8 << 20
 	registrySkillFileLimit   = 128
@@ -177,32 +176,11 @@ func (a *App) ListSkillRegistry(query string) ([]RegistrySkillInfo, error) {
 		})
 	}
 	query = strings.TrimSpace(query)
-	if len(query) >= 2 {
-		requestURL := defaultSkillHubURL + "/search?q=" + url.QueryEscape(query) + "&limit=10"
-		var response skillHubSearchResponse
-		if err := fetchJSON(requestURL, &response); err != nil {
-			return nil, fmt.Errorf("search Agent Skill Hub: %w", err)
-		}
-		for _, skill := range response.Skills {
-			owner := strings.SplitN(skill.SourceIdentifier, "/", 2)[0]
-			if safeSkillName(owner) == "" || safeSkillName(skill.Slug) == "" {
-				continue
-			}
-			_, isInstalled := installedNames[safeSkillName(skill.Name)]
-			result = append(result, RegistrySkillInfo{
-				ID: "hub:" + owner + "/" + skill.Slug, Name: skill.Name, Description: skill.Description,
-				Source: skill.SourceIdentifier, Registry: "Agent Skill Hub", Installed: isInstalled,
-			})
-		}
-	}
 	sort.Slice(result, func(i, j int) bool { return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name) })
 	return result, nil
 }
 
 func (a *App) InstallRegistrySkill(id string) (SkillInfo, error) {
-	if strings.HasPrefix(id, "hub:") {
-		return a.installSkillHubSkill(strings.TrimPrefix(id, "hub:"))
-	}
 	manifest, err := loadSkillRegistry()
 	if err != nil {
 		return SkillInfo{}, err
@@ -219,39 +197,6 @@ func (a *App) InstallRegistrySkill(id string) (SkillInfo, error) {
 		return SkillInfo{}, fmt.Errorf("registry skill %q not found", id)
 	}
 	return a.installRegistrySkillFiles(id, selected.Description, selected.Files)
-}
-
-func (a *App) installSkillHubSkill(reference string) (SkillInfo, error) {
-	parts := strings.Split(reference, "/")
-	if len(parts) != 2 || safeSkillName(parts[0]) == "" || safeSkillName(parts[1]) == "" {
-		return SkillInfo{}, fmt.Errorf("invalid Agent Skill Hub reference %q", reference)
-	}
-	detailURL := defaultSkillHubURL + "/u/" + url.PathEscape(parts[0]) + "/skills/" + url.PathEscape(parts[1])
-	var detail skillHubDetailResponse
-	if err := fetchJSON(detailURL, &detail); err != nil {
-		return SkillInfo{}, fmt.Errorf("load Agent Skill Hub skill: %w", err)
-	}
-	id := safeSkillName(detail.Skill.Slug)
-	if id == "" || detail.LatestVersion.CommitSHA == "" || len(detail.LatestVersion.Files) == 0 {
-		return SkillInfo{}, fmt.Errorf("Agent Skill Hub returned an incomplete skill")
-	}
-	if len(detail.LatestVersion.Files) > registrySkillFileLimit {
-		return SkillInfo{}, fmt.Errorf("skill %q contains too many files", id)
-	}
-	var declaredSize int64
-	files := make([]registrySkillFile, 0, len(detail.LatestVersion.Files))
-	for _, file := range detail.LatestVersion.Files {
-		declaredSize += file.Size
-		if declaredSize > registrySkillTotalLimit {
-			return SkillInfo{}, fmt.Errorf("skill %q exceeds the installation size limit", id)
-		}
-		rawURL, err := githubRawFileURL(detail.Skill.SourceIdentifier, detail.LatestVersion.CommitSHA, detail.Skill.SkillPath, file.Path)
-		if err != nil {
-			return SkillInfo{}, err
-		}
-		files = append(files, registrySkillFile{Path: file.Path, URL: rawURL})
-	}
-	return a.installRegistrySkillFiles(id, detail.Skill.Description, files)
 }
 
 func (a *App) installRegistrySkillFiles(id, description string, files []registrySkillFile) (SkillInfo, error) {
