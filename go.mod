@@ -3,8 +3,8 @@ module miya-desktop
 go 1.26.1
 
 require (
-	github.com/lsongdev/miya-agents v0.0.0-20260720132450-620b7b16054f
-	github.com/lsongdev/miya-channels v0.0.0-20260720123549-4bd5810193ac
+	github.com/lsongdev/miya-agents v0.0.0-20260727073944-1d3c7c411f65
+	github.com/lsongdev/miya-channels v0.0.0-20260727074238-a5f90ef15344
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.102
 )
 
@@ -98,7 +98,7 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/lmittmann/tint v1.1.3 // indirect
 	github.com/lsongdev/feishu-go v0.0.0-20260319163837-39674c462916 // indirect
-	github.com/lsongdev/jsonrpc-go v0.0.0-20260311082853-00cacf7253d3 // indirect
+	github.com/lsongdev/jsonrpc-go v0.0.0-20260723121620-843eb7a8375d // indirect
 	github.com/lsongdev/telegram-go v0.0.0-20260320025417-8942b286b9e9 // indirect
 	github.com/lsongdev/wechatbot-go v0.0.0-20260324073854-535a867c66ad // indirect
 	github.com/lsongdev/wecom-go v0.0.0-20260319113224-a7efceeaed8a // indirect

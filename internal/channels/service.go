@@ -76,7 +76,7 @@ func (s *Service) Start(ctx context.Context) (Status, error) {
 		s.status = Status{Error: err.Error()}
 		return s.status, err
 	}
-	instances, err := channelconfig.ChannelInstances(cfg)
+	instances, err := channelconfig.LoadChannelInstances()
 	if err != nil {
 		cancel()
 		s.status = Status{Error: err.Error()}
@@ -127,9 +127,9 @@ func (s *Service) Stop() (Status, error) {
 
 func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, instances []channelconfig.ChannelInstance, done chan<- error) {
 	err := channelapp.Run(ctx, channelapp.Options{
-		Config:   cfg,
+		Config:   &cfg.Config,
 		Channels: instances,
-		NewAgentClient: func(_ *miyaconfig.Config, endpoint miyaconfig.ACPAgentConfig) (*acp.Client, error) {
+		NewAgentClient: func(_ *channelconfig.Config, endpoint channelconfig.AgentConfig) (*acp.Client, error) {
 			return agentclient.NewForEndpoint(endpoint, s.loadConfig)
 		},
 		OnEvent: s.handleChannelEvent,

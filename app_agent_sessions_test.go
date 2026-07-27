@@ -23,12 +23,14 @@ func TestListAgentSessionsGroupsBuiltinSessionsByBoundAgent(t *testing.T) {
 
 	service := miyaconfig.NewService()
 	err := service.Save(&miyaconfig.Config{
-		Agents: []miyaconfig.ACPAgentConfig{},
-		Profiles: map[string]*miyaconfig.ProfileConfig{
-			"default": {Provider: "openai", ModelName: "gpt-5"},
-			"coding":  {Provider: "openai", ModelName: "gpt-5-codex"},
+		Config: agentsconfig.Config{
+			Agents: []miyaconfig.ACPAgentConfig{},
+			Profiles: map[string]*miyaconfig.ProfileConfig{
+				"default": {Provider: "openai", ModelName: "gpt-5"},
+				"coding":  {Provider: "openai", ModelName: "gpt-5-codex"},
+			},
+			Providers: map[string]*miyaconfig.ProviderConfig{},
 		},
-		Providers: map[string]*miyaconfig.ProviderConfig{},
 	})
 	if err != nil {
 		t.Fatalf("save config: %v", err)
