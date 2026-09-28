@@ -3,7 +3,7 @@ module miya-desktop
 go 1.26.1
 
 require (
-	github.com/lsongdev/miya-agents v0.0.0-20260727073944-1d3c7c411f65
+	github.com/lsongdev/miya-agents v0.0.0-20260918035648-edaf3bcd9672
 	github.com/lsongdev/miya-channels v0.0.0-20260727074238-a5f90ef15344
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.102
 )
