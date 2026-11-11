@@ -23,7 +23,7 @@ func TestListAgentSessionsGroupsBuiltinSessionsByBoundAgent(t *testing.T) {
 
 	service := miyaconfig.NewService()
 	err := service.Save(&miyaconfig.Config{
-		Config: agentsconfig.Config{
+		SharedConfig: miyaconfig.SharedConfig{
 			Agents: []miyaconfig.ACPAgentConfig{},
 			Profiles: map[string]*miyaconfig.ProfileConfig{
 				"default": {Provider: "openai", ModelName: "gpt-5"},
@@ -36,13 +36,13 @@ func TestListAgentSessionsGroupsBuiltinSessionsByBoundAgent(t *testing.T) {
 		t.Fatalf("save config: %v", err)
 	}
 
-	defaultSession := agentsession.New("default")
-	if err := defaultSession.Save(); err != nil {
-		t.Fatalf("save default session: %v", err)
+	defaultSession, err := agentsession.Create("default")
+	if err != nil {
+		t.Fatalf("create default session: %v", err)
 	}
-	codingSession := agentsession.New("coding")
-	if err := codingSession.Save(); err != nil {
-		t.Fatalf("save coding session: %v", err)
+	codingSession, err := agentsession.Create("coding")
+	if err != nil {
+		t.Fatalf("create coding session: %v", err)
 	}
 
 	app := &App{config: service}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"sync"
 
 	"miya-desktop/internal/agentclient"
@@ -44,12 +45,12 @@ type Service struct {
 	done       chan error
 	status     Status
 	loadConfig agentclient.ConfigLoader
-	emit       func(string, ...any)
+	emit       func(string, any)
 }
 
-func NewService(loadConfig agentclient.ConfigLoader, emit func(string, ...any)) *Service {
+func NewService(loadConfig agentclient.ConfigLoader, emit func(string, any)) *Service {
 	if emit == nil {
-		emit = func(string, ...any) {}
+		emit = func(string, any) {}
 	}
 	return &Service{loadConfig: loadConfig, emit: emit}
 }
@@ -57,7 +58,9 @@ func NewService(loadConfig agentclient.ConfigLoader, emit func(string, ...any)) 
 func (s *Service) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.status
+	status := s.status
+	status.ChannelEvents = maps.Clone(s.status.ChannelEvents)
+	return status
 }
 
 func (s *Service) Start(ctx context.Context) (Status, error) {
@@ -127,7 +130,7 @@ func (s *Service) Stop() (Status, error) {
 
 func (s *Service) run(ctx context.Context, cfg *miyaconfig.Config, instances []channelconfig.ChannelInstance, done chan<- error) {
 	err := channelapp.Run(ctx, channelapp.Options{
-		Config:   &cfg.Config,
+		Config:   cfg.AgentConfig(),
 		Channels: instances,
 		NewAgentClient: func(_ *channelconfig.Config, endpoint channelconfig.AgentConfig) (*acp.Client, error) {
 			return agentclient.NewForEndpoint(endpoint, s.loadConfig)

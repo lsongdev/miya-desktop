@@ -156,6 +156,18 @@ func (s *Store) CompleteStreaming(sessionID string) (Snapshot, bool) {
 	return Snapshot{Conversation: cloneConversation(*conv), EventType: "message_completed"}, true
 }
 
+// FailStreaming preserves partial output and makes the failed turn terminal.
+func (s *Store) FailStreaming(sessionID, message string) Snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	conv := s.ensureConversationLocked(sessionID)
+	now := s.nowString()
+	msg := s.currentAssistantMessageLocked(conv, now)
+	s.appendOrMergeTextBlockLocked(msg, BlockError, message)
+	msg.Status, msg.UpdatedAt, conv.UpdatedAt = MessageFailed, now, now
+	return Snapshot{Conversation: cloneConversation(*conv), EventType: "message_failed"}
+}
+
 func (s *Store) ApplyACPEvent(sessionID string, event *acpadapter.Event) Snapshot {
 	s.mu.Lock()
 	defer s.mu.Unlock()

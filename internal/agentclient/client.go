@@ -7,7 +7,8 @@ import (
 	miyaconfig "miya-desktop/internal/config"
 
 	"github.com/lsongdev/miya-agents/acp"
-	miyaagent "github.com/lsongdev/miya-agents/agent"
+	"github.com/lsongdev/miya-agents/acpserver"
+	miyaruntime "github.com/lsongdev/miya-agents/runtime"
 )
 
 type ConfigLoader func() (*miyaconfig.Config, error)
@@ -43,7 +44,7 @@ func NewForEndpoint(endpoint miyaconfig.ACPAgentConfig, loadConfig ConfigLoader)
 }
 
 func NewBuiltin(cfg *miyaconfig.Config) *acp.Client {
-	return acp.DialInProcess(miyaagent.NewAgentManager(&cfg.Config))
+	return acp.DialInProcess(acpserver.New(miyaruntime.New(cfg.AgentConfig())))
 }
 
 func IsBuiltinEndpoint(endpoint miyaconfig.ACPAgentConfig) bool {

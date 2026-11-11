@@ -1,87 +1,27 @@
 version: "3"
 
-vars:
-  APP_NAME: miya-desktop
-  BIN_DIR: bin
-  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
-  APP_VERSION: '{{.APP_VERSION | default "dev"}}'
-  WINDOWS_SYSO: wails_windows_amd64.syso
-  WINDOWS_INFO: build/windows/info.generated.json
-  WINDOWS_MANIFEST: build/windows/wails.generated.exe.manifest
-  WAILS3: go tool wails3
-
 tasks:
-  app:build:
-    summary: Build the Miya Desktop spike binary.
-    cmds:
-      - cd frontend && npm run build
-      - mkdir -p {{.BIN_DIR}}
-      - go build -o {{.BIN_DIR}}/{{.APP_NAME}} .
-
-  build:backend:
-    summary: Build only the Go backend for dev mode.
-    cmds:
-      - mkdir -p {{.BIN_DIR}}
-      - go build -gcflags=all="-N -l" -o {{.BIN_DIR}}/{{.APP_NAME}} .
-
-  generate:icons:
-    summary: Generate platform icons from build/appicon.png.
-    cmds:
-      - "{{.WAILS3}} generate icons -input build/appicon.png -macfilename build/darwin/icons.icns -windowsfilename build/windows/icon.ico -macassetdir build/darwin"
-
   build:
-    summary: Build the Miya Desktop spike binary.
+    summary: Build the native Go desktop application.
     cmds:
-      - task: app:build
-
+      - go tool mygo build
   darwin:build:
     cmds:
-      - task: app:build
-
+      - go tool mygo build -platform darwin/universal
   windows:build:
     cmds:
-      - cd frontend && npm run build
-      - mkdir -p {{.BIN_DIR}}
-      - node scripts/windows-info.mjs {{.WINDOWS_INFO}} {{.APP_VERSION}}
-      - node scripts/windows-manifest.mjs {{.WINDOWS_MANIFEST}} {{.APP_VERSION}}
-      - "{{.WAILS3}} generate syso -arch amd64 -icon build/windows/icon.ico -manifest {{.WINDOWS_MANIFEST}} -info {{.WINDOWS_INFO}} -out {{.WINDOWS_SYSO}}"
-      - GOOS=windows GOARCH=amd64 go build -ldflags "-X main.appVersion={{.APP_VERSION}} -H windowsgui" -o {{.BIN_DIR}}/{{.APP_NAME}}.exe .
-      - rm -f {{.WINDOWS_SYSO}} {{.WINDOWS_INFO}} {{.WINDOWS_MANIFEST}}
-
+      - go tool mygo build -platform windows/amd64
   linux:build:
     cmds:
-      - task: app:build
-
-  run:
-    summary: Run the Miya Desktop spike binary.
-    deps:
-      - app:build
-    cmds:
-      - ./{{.BIN_DIR}}/{{.APP_NAME}}
-
-  run:dev:
-    summary: Run the current dev binary.
-    cmds:
-      - |
-        if [ "$(uname)" = "Darwin" ]; then
-          app="{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
-          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-          cp build/darwin/icons.icns "$app/Contents/Resources/icons.icns"
-          cp build/darwin/Info.dev.plist "$app/Contents/Info.plist"
-          cp "{{.BIN_DIR}}/{{.APP_NAME}}" "$app/Contents/MacOS/{{.APP_NAME}}"
-          codesign --force --deep --sign - "$app"
-          "$app/Contents/MacOS/{{.APP_NAME}}"
-        else
-          ./{{.BIN_DIR}}/{{.APP_NAME}}
-        fi
-
-  frontend:dev:
-    summary: Run the Vite frontend dev server.
-    dir: frontend
-    cmds:
-      - npm run dev
-
+      - go tool mygo build -platform linux/amd64
   dev:
-    summary: Run the Wails v3 dev loop.
+    summary: Run the native application with Go hot reload.
     cmds:
-      - "{{.WAILS3}} dev -config ./build/config.yml -port {{.VITE_PORT}}"
+      - go tool mygo dev
+  run:
+    cmds:
+      - task: dev
+  test:
+    cmds:
+      - go test ./...
+      - go vet ./...

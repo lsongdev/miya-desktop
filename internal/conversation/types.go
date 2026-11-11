@@ -70,4 +70,5 @@ type Block struct {
 type Snapshot struct {
 	Conversation Conversation `json:"conversation"`
 	EventType    string       `json:"eventType"`
+	StopReason   string       `json:"stopReason,omitempty"`
 }

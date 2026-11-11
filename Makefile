@@ -1,65 +1,38 @@
-APP_NAME := miya-desktop
-BIN_DIR  := bin
-APP_VERSION ?= $(shell TZ=Asia/Shanghai date '+%y.%m.%d' | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3}')
-MAC_APP ?= $(BIN_DIR)/Miya.app
-MAC_PLIST = $(MAC_APP)/Contents/Info.plist
-MAC_GOENV ?=
-WAILS3 ?= go tool wails3
-GO_LDFLAGS := -X main.appVersion=$(APP_VERSION)
-WINDOWS_LDFLAGS := $(GO_LDFLAGS) -H windowsgui
-WINDOWS_SYSO := wails_windows_amd64.syso
-WINDOWS_INFO := build/windows/info.generated.json
-WINDOWS_MANIFEST := build/windows/wails.generated.exe.manifest
+APP_VERSION ?=
+BIN_DIR ?= bin
+MYGO ?= go tool mygo
 
-export VITE_APP_VERSION := $(APP_VERSION)
+.PHONY: configure build build-macos build-macos-arm64 build-windows run dev clean install test version
 
-.PHONY: build build-macos build-macos-arm64 build-windows run dev clean install generate-icons version
+configure:
+	go run ./scripts/configure -version "$(APP_VERSION)"
 
-build:
-	cd frontend && pnpm run build
-	mkdir -p $(BIN_DIR)
-	go build -ldflags "$(GO_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME) .
+build: configure
+	$(MYGO) build -o $(BIN_DIR)
 
-build-macos:
-	cd frontend && pnpm install && pnpm run build
-	mkdir -p $(MAC_APP)/Contents/MacOS $(MAC_APP)/Contents/Resources
-	$(MAC_GOENV) go build -ldflags "$(GO_LDFLAGS)" -o $(MAC_APP)/Contents/MacOS/$(APP_NAME) .
-	cp build/darwin/Info.plist $(MAC_PLIST)
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(APP_VERSION)" $(MAC_PLIST)
-	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(APP_VERSION)" $(MAC_PLIST)
-	cp build/darwin/icons.icns $(MAC_APP)/Contents/Resources/icons.icns
-	codesign --force --deep --sign - $(MAC_APP)
+build-macos: configure
+	$(MYGO) build -platform darwin/universal -o $(BIN_DIR)
 
-build-macos-arm64:
-	$(MAKE) build-macos APP_VERSION=$(APP_VERSION) MAC_APP=$(BIN_DIR)/Miya-arm64.app MAC_GOENV="GOOS=darwin GOARCH=arm64 CGO_ENABLED=1"
+build-macos-arm64: configure
+	$(MYGO) build -platform darwin/arm64 -o $(BIN_DIR)
 
-build-windows:
-	cd frontend && pnpm install && pnpm run build
-	mkdir -p $(BIN_DIR)
-	node scripts/windows-info.mjs $(WINDOWS_INFO) $(APP_VERSION)
-	node scripts/windows-manifest.mjs $(WINDOWS_MANIFEST) $(APP_VERSION)
-	$(WAILS3) generate syso -arch amd64 -icon build/windows/icon.ico -manifest $(WINDOWS_MANIFEST) -info $(WINDOWS_INFO) -out $(WINDOWS_SYSO)
-	GOOS=windows GOARCH=amd64 go build -ldflags "$(WINDOWS_LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME).exe .
-	rm -f $(WINDOWS_SYSO) $(WINDOWS_INFO) $(WINDOWS_MANIFEST)
+build-windows: configure
+	$(MYGO) build -platform windows/amd64 -o $(BIN_DIR)
 
 install:
-	cd frontend && pnpm install
+	go mod download
 
 dev:
-	$(WAILS3) dev -config ./build/config.yml
+	$(MYGO) dev
 
-run: build
-	./$(BIN_DIR)/$(APP_NAME)
+run: dev
 
-generate-icons:
-	$(WAILS3) generate icons \
-		-input build/appicon.png \
-		-macfilename build/darwin/icons.icns \
-		-windowsfilename build/windows/icon.ico \
-		-macassetdir build/darwin
+test:
+	go test ./...
+	go vet ./...
 
 version:
-	@printf '%s\n' "$(APP_VERSION)"
+	@awk -F'"' '/"version"/ { print $$4; exit }' mygo.json
 
 clean:
-	rm -rf $(BIN_DIR) frontend/dist
+	rm -rf $(BIN_DIR) .mygo

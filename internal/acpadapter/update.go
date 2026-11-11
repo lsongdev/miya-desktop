@@ -29,7 +29,7 @@ type Event struct {
 }
 
 // ParseSessionUpdate maps the ACP library's already-decoded update into the
-// smaller event shape consumed by the conversation store and frontend.
+// smaller event shape consumed by the conversation store and native views.
 func ParseSessionUpdate(update acp.SessionUpdate) (*Event, error) {
 	if update.SessionUpdate == "" {
 		return nil, fmt.Errorf("acp update missing sessionUpdate")

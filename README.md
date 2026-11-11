@@ -4,91 +4,88 @@
 
 <h1 align="center">Miya Desktop</h1>
 
-<p align="center">
-  ACP-native desktop workspace for AI agents, local runtimes, external ACP endpoints, MCP tools, and remote-control channels.
-</p>
+A native Go workspace for AI agents, built with [MyGo](https://github.com/egoist/mygo).
+The entire interface uses `github.com/egoist/mygo/ui`; it has no React, HTML,
+JavaScript, Vite, npm dependencies or webview.
 
-<p align="center">
-  <a href="https://github.com/lsongdev/miya-desktop/actions/workflows/release.yml"><img src="https://github.com/lsongdev/miya-desktop/actions/workflows/release.yml/badge.svg" alt="Release"></a>
-  <a href="https://github.com/lsongdev/miya-desktop/releases"><img src="https://img.shields.io/github/v/release/lsongdev/miya-desktop?include_prereleases&label=release" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go 1.26">
-  <img src="https://img.shields.io/badge/Wails-2.12-red" alt="Wails 2.12">
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="Platforms">
-</p>
+## Features
 
-The app embeds the Miya agent runtime and channel gateway directly into the desktop binary, while still keeping ACP as the protocol boundary for external agents such as OpenCode, Codex, Claude-compatible tools, or any other ACP endpoint.
+- Built-in Miya profiles and external stdio ACP agents.
+- Multi-agent session list, search, create, resume, close and delete.
+- Streaming Markdown conversations, selectable text and native copy actions.
+- Multi-line composer with Enter to send, Shift+Enter for a newline, and Stop.
+- Timeline blocks for thoughts, tools and their input/output, plans, errors,
+  context usage, mode and completion reasons.
+- Native image previews, audio playback, attachment opening and Save dialogs.
+- Provider, profile, external agent, MCP and channel editors.
+- Model discovery, MCP marketplace and Skills registry.
+- WeChat QR login, embedded gateway controls and automatic channel startup.
+- First-run provider/model setup, light/dark appearance and background notifications.
+- Tray, native menus, remembered window size, and a native signed-update window.
 
-## Highlights
+The agent runtime and channel gateway are embedded in the application.
+ACP remains the integration boundary for external agents.
 
-- **ACP-first agent client**: connect to embedded Miya agents or external stdio ACP agents.
-- **Multi-agent sessions**: view and switch sessions across enabled agents from one session list.
-- **Streaming conversations**: render assistant output, Markdown, tool calls, thoughts, plans, usage, and stop reasons.
-- **Embedded runtime**: `miya-agents` and `miya-channels` are compiled into the desktop app for a single-app install experience.
-- **Configurable providers and profiles**: manage providers, agent profiles, MCP servers, and channels from Settings.
-- **Remote-control channels**: run the embedded channel service to bridge chat platforms into ACP agents.
-- **Native desktop shell**: Wails + Go backend with a React frontend.
+## Development
 
-## Product Scope
+Requirements: **Go 1.27.3+**. Node.js and a webview runtime are not needed.
 
-Miya Desktop is designed as an operator-focused client rather than a generic chat UI. The core workflow is:
-
-1. Configure providers, profiles, MCP servers, and ACP agent endpoints.
-2. Enable one or more agents.
-3. Create or resume sessions from the left session list.
-4. Interact with agents through a streaming timeline that exposes tool activity and reasoning artifacts.
-5. Optionally enable Channels so remote chat tools can control the same agent runtime.
-
-## Architecture
-
-```text
-React UI
-  -> Wails API
-  -> Go backend
-  -> ACP client manager
-  -> embedded miya-agents or external ACP endpoint
+```sh
+cd miya-desktop
+make dev
 ```
 
-For the built-in Miya agent, the desktop app uses an in-process ACP transport. This keeps the same ACP client/server contract without launching a separate `miya-agent` process.
+The MyGo CLI is pinned as a Go tool. It watches Go source and restarts the
+native application after changes.
 
-```text
-desktop acp.Client
-  -> in-process ACP transport
-  -> miya-agents acp.Server
-  -> miya-agents runtime
+```sh
+make test                   # backend and native UI tests, plus go vet
+go test -race ./...          # race checks
+go tool mygo vet             # native view lifetime checks
+make build                  # package for the current platform
+make build-macos            # universal macOS app and disk image
+make build-macos-arm64      # Apple Silicon app and disk image
+make build-windows          # Windows amd64 executable; installer requires NSIS
 ```
 
-Channels are also embedded:
+Packages go to `bin/<os>-<arch>/`, for example
+`bin/darwin-arm64/Miya Desktop.app`. MyGo generates icons, bundles,
+manifests and installers from `mygo.json` and `build/appicon.png`.
+macOS requires 12.0+. Windows does not require WebView2. On Windows the CLI
+can obtain NSIS automatically; cross-compiling an installer needs `makensis`.
 
-```text
-miya-channels app.Run
-  -> channel connector
-  -> ACP client
-  -> embedded or external agent
+The version lives in `mygo.json`. To update it and build:
+
+```sh
+make build APP_VERSION=26.10.29
 ```
 
-The related projects can still run independently:
+This updates the version in `mygo.json`. The Go configuration helper keeps
+release packaging independent of JavaScript. Direct `go tool mygo build`
+uses the checked-in metadata.
 
-- [miya-agents](https://github.com/lsongdev/miya-agents): agent loop, ACP implementation, MCP support, sessions, tools.
-- [miya-channels](https://github.com/lsongdev/miya-channels): chat platform gateway that bridges channel messages to ACP agents.
+## Configuration and persistence
 
-## Configuration
-
-Miya Desktop reads and writes the shared Miya config file:
+Configuration and session data keep their existing paths:
 
 ```text
 ~/.miya/config.json
+~/.miya/sessions/
+~/.miya/workspace/
+~/.miya/logs/
 ```
 
-Important top-level sections:
+Important configuration sections:
 
-- `agents`: external stdio ACP endpoints used by the desktop client.
-- `profiles`: Miya agent runtime profiles.
-- `providers`: model provider credentials and base URLs.
-- `mcpServers`: MCP tool server definitions.
-- `channels`: channel gateway configuration.
-- `channelsEnabled`: desktop preference for auto-starting the embedded channel service.
+- `profiles`: embedded Miya agent profiles.
+- `providers`: provider credentials, API base URLs, protocol and model mappings.
+- `agents`: external ACP endpoints.
+- `mcpServers`: stdio, Streamable HTTP or SSE tool servers.
+- `channels` and `channelsEnabled`: channel instances and gateway auto-start.
 
-The built-in Miya agent is owned by Miya Desktop and does not need to be declared in `agents`.
+Native preferences are stored in `~/.miya/desktop.json`. Existing configuration
+and sessions need no migration. Browser-only appearance, selected-agent and
+notification preferences start with native defaults.
 
 Example external ACP endpoint:
 
@@ -103,89 +100,54 @@ Example external ACP endpoint:
 }
 ```
 
-Miya Desktop injects the built-in `Miya Agents` endpoint at runtime. This keeps the config file focused on external ACP tools.
+Each built-in profile also appears in the agent selector. Argument fields
+accept a JSON string array or one argument per line, preserving paths and
+arguments that contain spaces.
 
-## Development
+Provider renames update dependent profiles. Editors preserve existing
+provider protocol/model mappings and advanced profile options. Gateway
+configuration changes restart a running gateway.
 
-Prerequisites:
-
-- Go
-- Node.js
-- Wails CLI
-
-Install frontend dependencies:
-
-```bash
-cd frontend
-npm install
-```
-
-Run the desktop app in development mode:
-
-```bash
-wails dev
-```
-
-Build a local production app:
-
-```bash
-wails build -platform darwin/arm64 -clean -trimpath
-```
-
-Run backend tests:
-
-```bash
-go test ./...
-```
-
-Run frontend build validation:
-
-```bash
-cd frontend
-npm run build
-```
-
-## Release
-
-GitHub Actions provides a release workflow:
+## Architecture
 
 ```text
-.github/workflows/release.yml
+MyGo native view -> Go application services -> ACP client manager
+                                          -> embedded runtime / external agent
+
+ACP updates -> adapter -> conversation store -> native state -> Window.Update
+Channel gateway -> shared ACP client factory -> embedded runtime / external agent
 ```
 
-The workflow checks out:
+The backend owns conversation and protocol reduction. Native UI reads
+normalized snapshots directly, with no IPC, JavaScript bindings or frontend
+stream reducer. Background jobs apply their results on the window thread.
 
-- `miya-desktop`
-- `miya-agents`
-- `miya-channels`
+See [architecture](docs/ARCHITECTURE.md) for module boundaries and validation.
 
-It builds Wails apps and uploads prerelease artifacts:
+## Releases and automatic updates
 
-```text
-miya-desktop-darwin-universal.zip
-miya-desktop-windows-amd64.zip
-```
+`.github/workflows/release.yml` tests the native application and builds
+universal/arm64 macOS packages and Windows amd64 packages. Tags use `v<version>`.
 
-Manual release trigger:
+Signed updates use the **native** MyGo update plugin:
 
-```bash
-gh workflow run Release --field version=v0.1.0-test.3
-```
+1. Run `go tool mygo keygen` and keep the private key outside Git.
+2. Set the repository variable `MYGO_UPDATER_PUBLIC_KEY`.
+3. Set the repository secret `MYGO_UPDATER_PRIVATE_KEY`.
 
-## Repository Layout
+For local signed builds, provide the same environment variables. The
+configuration helper stores only the public key in `mygo.json`; the private
+key is read by MyGo at build time and is never written to project metadata.
+Configured signed builds require the private key.
 
-```text
-app.go                         Wails API surface
-internal/agent                 ACP client manager and conversation bridge
-internal/agentclient           embedded/external ACP client factory
-internal/acpadapter            ACP update normalization
-internal/channels              embedded channel service controller
-internal/config                shared Miya config service
-frontend/src/pages/Chat.jsx    main conversation UI
-frontend/src/pages/Settings.jsx configuration UI
-docs/                          architecture and roadmap notes
-```
+The build publishes signed archives and `update-<platform>.json` manifests.
+The native updater checks, verifies, installs and offers to restart.
+Without signing configuration, Check for Updates opens the release downloads
+page; development builds do not check for updates.
 
-## Status
+## Related repositories
 
-Miya Desktop is in preview. The current focus is stabilizing the agent runtime integration, session model, channel service, and configuration experience before expanding platform packaging and deeper permission controls.
+- [miya-agents](https://github.com/lsongdev/miya-agents): agent runtime, ACP, MCP, sessions, skills and tools.
+- [miya-channels](https://github.com/lsongdev/miya-channels): chat gateway bridging remote channels to ACP agents.
+
+Both remain independent versioned Go modules.

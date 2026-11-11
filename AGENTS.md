@@ -1,121 +1,58 @@
-# AGENTS.md
+# Repository Guidelines
 
-## Project Context
+Miya Desktop is an ACP-native agent workspace. Its interface is written entirely
+in Go with MyGo's native UI toolkit (`github.com/egoist/mygo/ui`). Do not add
+React, HTML, JavaScript bindings or a webview to implement application screens.
+The update window uses `plugins/updater/native` too.
 
-Miya Desktop is a Wails + React desktop client for AI Agents. Its primary integration protocol is ACP (Agent Communication Protocol). The client should support local and remote agents, full conversation flows, streaming output, tool calls, thoughts, plans, usage, session management, and future channel-based remote access.
+## Architecture
 
-Related repositories are part of the same broader Miya AI Agents effort:
+Use `docs/ARCHITECTURE.md` as the architecture reference.
 
-- `miya/miya-desktop`: desktop client and integration shell.
-- `miya/miya-agents`: standalone AI agent loop and ACP implementation.
-- `miya/miya-channels`: standalone multi-platform chat gateway that bridges chat platforms to ACP agents.
+- ACP is the boundary shared by embedded and external agents and Channels.
+- The backend owns conversations, messages, tools and streaming reduction.
+- Native views consume normalized snapshots directly through Go services.
+- Native presentation state belongs to the window thread. Capture immutable
+  parameters in background jobs and commit results through `Window.Update`.
+- Each `ui.Element` is valid only during its build pass. Store `ui.Handle`,
+  `ui.ListState` and model data rather than Elements.
+- Give dynamic controls stable keys. Use `ui.NewTester` to check real controls.
+- Use a multi-line `ui.TextArea` composer; thoughts, tools, plans and usage are
+  first-class timeline blocks.
 
-`miya-agents` and `miya-channels` are independent projects, but they are intended to be integrated into `miya-desktop`. If integration reveals protocol, runtime, state-management, or API issues in those repositories, it is acceptable to improve those repositories too, as long as the changes are scoped and compatible with their standalone use.
+## Files
 
-## Architecture Direction
+- `main.go`: native application lifecycle, window and tray.
+- `native_state.go`: jobs, sessions, snapshot delivery and notifications.
+- `native_view.go`, `native_chat.go`: shell and conversation interface.
+- `native_settings.go`, `native_forms.go`: settings, forms and registries.
+- `app.go`, `registry.go`: application services.
+- `internal/`: configuration, ACP adapter, manager, conversation store and channels.
+- `mygo.json`: native package configuration.
+- `scripts/configure`: Go-only release metadata preparation.
 
-Use `docs/ROADMAP.md` as the current architecture plan.
+## Development
 
-The preferred direction is:
-
-- Treat ACP as the shared protocol boundary.
-- Keep the backend as the authority for conversations, messages, turns, tool calls, and streaming state.
-- Avoid putting protocol reduction logic in React components.
-- Normalize ACP updates into a stable conversation timeline before emitting UI events.
-- Support multiple Agent profiles and runtime instances instead of a single global ACP client.
-- Treat `miya-channels` as a future Channel Connector that feeds the same Conversation Service, not as a separate conversation model.
-
-## Repository Boundaries
-
-Default working directory is `miya-desktop`. Most changes should happen here.
-
-Changes to sibling repositories are allowed when needed for integration:
-
-- Change `miya-agents` if ACP types, server/client behavior, embedded agent loop integration, session handling, or event semantics need improvement.
-- Change `miya-channels` if channel session mapping, streaming fanout, ACP client handling, or connector APIs need improvement.
-- Preserve each sibling repository's ability to run independently.
-- Do not make cross-repo changes casually. Document why the sibling change is required.
-- If a change spans repositories, verify each changed repository independently where practical.
-
-## Development Practices
-
-- Prefer small, staged changes that keep the app runnable.
-- Preserve user changes in the worktree. Do not reset or revert unrelated edits.
-- Use `rg` for search.
-- Use `apply_patch` for manual edits.
-- Keep frontend state simple; move protocol and stream reduction logic into backend services.
-- Add tests around reducers, ACP adapters, and state transitions before large UI work.
-- Keep docs updated when architecture or integration contracts change.
-
-## Current Stack
-
-- Desktop: Wails v2
-- Backend: Go
-- Frontend: React + Vite
-- Styling: Tailwind CSS + local UI components
-- Protocol: ACP via `github.com/lsongdev/miya-agents/acp`
-
-## Important Current Files
-
-- `internal/agent/manager.go`: current ACP client manager and update parser.
-- `app.go`: Wails API surface exposed to React.
-- `frontend/src/pages/Chat.jsx`: current chat UI and in-component streaming reducer.
-- `frontend/src/context/AgentContext.jsx`: current Agent configuration and connection state.
-- `frontend/src/components/SessionList.jsx`: current session list and create/load/delete controls.
-- `docs/ARCHITECTURE.md`: current architecture summary.
-- `docs/IMPROVEMENTS.md`: known cleanup and quality issues.
-- `docs/ROADMAP.md`: target architecture and phased implementation plan.
-
-## Near-Term Priorities
-
-1. Define backend domain models for AgentProfile, AgentRuntime, Conversation, Message, Block, ToolCall, and Turn.
-2. Extract ACP update parsing into an adapter package with unit tests.
-3. Implement a backend Conversation Reducer that converts ACP updates into a stable timeline.
-4. Update React to consume backend timeline events instead of reducing ACP events locally.
-5. Replace single-line input with a textarea composer supporting multi-line messages.
-6. Add stop/cancel, stopReason, usage, mode/config updates, and better tool call blocks.
-7. Introduce multi-Agent profile/runtime management.
-8. Move Provider and MCP configuration into backend-managed configuration.
-9. Integrate `miya-channels` through the shared Conversation Service.
-
-## UI Guidelines
-
-- Build the real tool UI, not a marketing landing page.
-- Keep operational screens dense, scannable, and predictable.
-- Use existing local UI components and lucide icons.
-- Use textarea for chat composition.
-- Tool calls, thoughts, plans, and usage should be first-class timeline blocks.
-- Avoid nested cards and decorative-only visual elements.
-
-## Integration Notes
-
-ACP events should be treated as raw protocol input. The app should store or preserve enough raw event data for debugging, but UI rendering should use normalized state.
-
-Recommended flow:
-
-```text
-ACP session/update
-  -> ACP Adapter
-  -> Conversation Reducer
-  -> Message Store
-  -> Wails Event
-  -> React Timeline
+```sh
+make dev
+make test
+go test -race ./...
+go tool mygo vet
+make build
+make build-macos
+make build-windows
 ```
 
-For `miya-channels`, the long-term flow should be:
+Go 1.27.3+ is required. No Node.js, npm, frontend build or webview runtime is
+required. Format Go files with gofmt. Prefer focused state, protocol, persistence
+and native interaction tests.
 
-```text
-Channel IncomingMessage
-  -> ConversationService.GetOrCreateConversation(source)
-  -> ConversationService.SendMessage()
-  -> Agent Runtime ACP Prompt
-  -> Conversation Events
-  -> Channel Writer
-```
+Preserve existing worktree changes. Use rg for search and apply_patch for edits.
+Keep runtime data and credentials out of Git, under `~/.miya/`. Native
+preferences live in desktop.json beside the shared config.json. Configuration
+should follow miya-agents first, with deliberate desktop/channel extensions.
+Keep transport and protocol details outside native rendering code.
 
-## Safety Notes
-
-- API keys and provider secrets should not remain in frontend localStorage long term.
-- Prefer system credential storage for secrets.
-- High-risk tool calls should eventually route through ACP permission requests or a local permission policy.
-- Be careful with commands that modify files outside `miya-desktop`; sibling repository changes should be intentional and described.
+The sibling miya-agents and miya-channels repositories are independent versioned
+Go modules. Change them only when integration requires it; preserve standalone
+use and verify each changed repository separately.

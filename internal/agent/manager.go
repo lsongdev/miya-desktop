@@ -17,7 +17,12 @@ import (
 	"github.com/lsongdev/miya-agents/acp"
 )
 
-type EventEmitter func(name string, data ...any)
+type EventEmitter func(name string, data any)
+
+type SessionUpdate struct {
+	SessionID string            `json:"sessionId"`
+	Event     *acpadapter.Event `json:"event"`
+}
 
 type Session struct {
 	ID           string `json:"id"`
@@ -56,6 +61,7 @@ type Manager struct {
 	replayMu       sync.Mutex
 	replays        map[string]*sessionReplay
 	loadedSessions map[string]bool
+	cancelledTurns map[string]bool
 }
 
 type sessionReplay struct {
@@ -66,7 +72,7 @@ type sessionReplay struct {
 
 func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmitter) *Manager {
 	if emit == nil {
-		emit = func(string, ...any) {}
+		emit = func(string, any) {}
 	}
 	return &Manager{
 		ctx:            ctx,
@@ -75,6 +81,7 @@ func New(ctx context.Context, loadConfig agentclient.ConfigLoader, emit EventEmi
 		emit:           emit,
 		replays:        make(map[string]*sessionReplay),
 		loadedSessions: make(map[string]bool),
+		cancelledTurns: make(map[string]bool),
 	}
 }
 
@@ -220,10 +227,7 @@ func (r *managerNotificationReceiver) SessionUpdate(notification *acp.SessionNot
 	} else {
 		store.ApplyACPEventQuiet(conversationID, event)
 	}
-	r.manager.emitEvent("session:update", map[string]any{
-		"sessionId": conversationID,
-		"event":     event,
-	})
+	r.manager.emitEvent("session:update", SessionUpdate{SessionID: conversationID, Event: event})
 	if emitConversation {
 		r.manager.emitEvent("conversation:update", snapshot)
 	}
@@ -432,7 +436,13 @@ func (m *Manager) Prompt(sessionID, message string) error {
 	conversationID, acpSessionID := m.splitSessionRef(sessionID)
 	m.mu.Lock()
 	m.loadedSessions[conversationID] = true
+	m.cancelledTurns[conversationID] = false
 	m.mu.Unlock()
+	defer func() {
+		m.mu.Lock()
+		delete(m.cancelledTurns, conversationID)
+		m.mu.Unlock()
+	}()
 	log.Printf("[agent] Prompt: session=%q acp=%q message=%q", conversationID, acpSessionID, message)
 	m.store.RegisterSessionWithACP(conversationID, acpSessionID, "")
 	m.annotateModel(conversationID)
@@ -450,16 +460,24 @@ func (m *Manager) Prompt(sessionID, message string) error {
 			{Type: "text", Text: message},
 		},
 	})
+	m.mu.Lock()
+	cancelled := m.cancelledTurns[conversationID]
+	m.mu.Unlock()
 	if err != nil {
+		if cancelled {
+			if snapshot, ok := m.store.CompleteStreaming(conversationID); ok {
+				snapshot.StopReason = "cancelled"
+				m.emitEvent("conversation:update", snapshot)
+			}
+			return nil
+		}
+		m.emitEvent("conversation:update", m.store.FailStreaming(conversationID, err.Error()))
 		return fmt.Errorf("agent: prompt: %w", err)
 	}
 
 	if snapshot, ok := m.store.CompleteStreaming(conversationID); ok {
-		m.emitEvent("conversation:update", map[string]any{
-			"conversation": snapshot.Conversation,
-			"eventType":    snapshot.EventType,
-			"stopReason":   resp.StopReason,
-		})
+		snapshot.StopReason = string(resp.StopReason)
+		m.emitEvent("conversation:update", snapshot)
 	}
 	return nil
 }
@@ -472,8 +490,18 @@ func (m *Manager) CancelSession(sessionID string) error {
 	if client == nil {
 		return fmt.Errorf("agent: not connected")
 	}
-	_, acpSessionID := m.splitSessionRef(sessionID)
+	conversationID, acpSessionID := m.splitSessionRef(sessionID)
+	m.mu.Lock()
+	if _, active := m.cancelledTurns[conversationID]; active {
+		m.cancelledTurns[conversationID] = true
+	}
+	m.mu.Unlock()
 	if err := client.CancelSession(acp.SessionID(acpSessionID)); err != nil {
+		m.mu.Lock()
+		if _, active := m.cancelledTurns[conversationID]; active {
+			m.cancelledTurns[conversationID] = false
+		}
+		m.mu.Unlock()
 		return fmt.Errorf("agent: cancel session: %w", err)
 	}
 	return nil

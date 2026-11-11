@@ -2,15 +2,14 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"mime"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -28,8 +27,6 @@ import (
 	"github.com/lsongdev/miya-agents/openai"
 	"github.com/lsongdev/miya-agents/skills"
 	channelpkg "github.com/lsongdev/miya-channels/channels"
-	"github.com/wailsapp/wails/v3/pkg/application"
-	wailsupdater "github.com/wailsapp/wails/v3/pkg/updater"
 )
 
 // App struct
@@ -40,7 +37,6 @@ type App struct {
 
 	config   *miyaconfig.Service
 	channels *channelservice.Service
-	updater  *wailsupdater.Updater
 
 	wechatLoginMu     sync.Mutex
 	wechatLoginCancel context.CancelFunc
@@ -58,7 +54,7 @@ type AttachmentData struct {
 	Name     string `json:"name"`
 	MimeType string `json:"mimeType"`
 	Size     int64  `json:"size"`
-	Data     string `json:"data"`
+	Data     []byte `json:"data"`
 }
 
 type UpdateCheckResult struct {
@@ -71,20 +67,6 @@ type UpdateCheckResult struct {
 // NewApp creates a new App application struct
 func NewApp(emit agent.EventEmitter) *App {
 	return &App{emit: emit}
-}
-
-func (a *App) setUpdater(updater *wailsupdater.Updater) {
-	a.updater = updater
-}
-
-func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
-	a.startup(ctx)
-	return nil
-}
-
-func (a *App) ServiceShutdown() error {
-	a.shutdown()
-	return nil
 }
 
 // startup is called when the app starts.
@@ -128,34 +110,6 @@ func (a *App) shutdown() {
 
 func channelsEnabled(cfg *miyaconfig.Config) bool {
 	return cfg.ChannelsEnabled == nil || *cfg.ChannelsEnabled
-}
-
-func (a *App) CheckForUpdates() (*UpdateCheckResult, error) {
-	if a.updater == nil {
-		return nil, fmt.Errorf("updater is not available")
-	}
-	if !isReleaseVersion(appVersion) {
-		return nil, fmt.Errorf("updates are only available in release builds")
-	}
-	if err := a.updater.CheckAndInstall(context.Background()); err != nil {
-		return nil, err
-	}
-	state := string(a.updater.State())
-	message := "Update check complete."
-	switch a.updater.State() {
-	case wailsupdater.StateUpToDate:
-		message = "You're running the latest version."
-	case wailsupdater.StateReady:
-		message = "Update downloaded. Restart from the update window to finish installing."
-	case wailsupdater.StateAvailable:
-		message = "Update available."
-	}
-	return &UpdateCheckResult{
-		Status:         state,
-		Message:        message,
-		CurrentVersion: appVersion,
-		State:          state,
-	}, nil
 }
 
 func isReleaseVersion(version string) bool {
@@ -228,9 +182,17 @@ func (a *App) ReadAttachment(target string, maxBytes int64) (*AttachmentData, er
 	if info.Size() > maxBytes {
 		return nil, fmt.Errorf("attachment is too large to preview")
 	}
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open attachment: %w", err)
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read attachment: %w", err)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, fmt.Errorf("attachment is too large to preview")
 	}
 	mimeType := mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
 	if mimeType == "" {
@@ -240,7 +202,7 @@ func (a *App) ReadAttachment(target string, maxBytes int64) (*AttachmentData, er
 		Name:     filepath.Base(path),
 		MimeType: mimeType,
 		Size:     info.Size(),
-		Data:     base64.StdEncoding.EncodeToString(data),
+		Data:     data,
 	}, nil
 }
 
@@ -280,23 +242,6 @@ func fileURLPath(u *url.URL) (string, error) {
 		return "", fmt.Errorf("file URL path is empty")
 	}
 	return path, nil
-}
-
-func openWithDefaultApp(target string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", target)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
-	default:
-		cmd = exec.Command("xdg-open", target)
-	}
-	configureCommand(cmd)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("open attachment: %w", err)
-	}
-	return nil
 }
 
 func (a *App) ConnectAgent(command string) error {

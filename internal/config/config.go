@@ -10,10 +10,19 @@ import (
 	agentsconfig "github.com/lsongdev/miya-agents/config"
 )
 
+// SharedConfig keeps shared fields without inheriting the shared decoder,
+// so desktop extensions retain the same flat persistence shape.
+type SharedConfig agentsconfig.Config
+
 type Config struct {
-	agentsconfig.Config
+	SharedConfig
 	Channels        []json.RawMessage `json:"channels,omitempty" yaml:"channels,omitempty"`
 	ChannelsEnabled *bool             `json:"channelsEnabled,omitempty" yaml:"channelsEnabled,omitempty"`
+}
+
+// AgentConfig returns the shared portion used by the embedded agent and channels.
+func (c *Config) AgentConfig() *agentsconfig.Config {
+	return (*agentsconfig.Config)(&c.SharedConfig)
 }
 
 func (c *Config) UnmarshalJSON(data []byte) error {
@@ -28,7 +37,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &desktop); err != nil {
 		return err
 	}
-	c.Config = shared
+	c.SharedConfig = SharedConfig(shared)
 	c.Channels = desktop.Channels
 	c.ChannelsEnabled = desktop.ChannelsEnabled
 	return nil
@@ -73,7 +82,7 @@ func (s *Service) Load() (*Config, error) {
 			return nil, fmt.Errorf("parse config: %w", err)
 		}
 	}
-	agentsconfig.Normalize(&cfg.Config)
+	agentsconfig.Normalize(cfg.AgentConfig())
 	return cfg, nil
 }
 
@@ -81,7 +90,7 @@ func (s *Service) Save(cfg *Config) error {
 	if cfg == nil {
 		cfg = newConfig()
 	}
-	agentsconfig.Normalize(&cfg.Config)
+	agentsconfig.Normalize(cfg.AgentConfig())
 	if err := os.MkdirAll(filepath.Dir(s.path), 0755); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
@@ -100,12 +109,12 @@ func AgentEndpoints(cfg *Config) ([]ACPAgentConfig, error) {
 	if cfg == nil {
 		return nil, nil
 	}
-	return agentsconfig.AgentEndpoints(&cfg.Config)
+	return agentsconfig.AgentEndpoints(cfg.AgentConfig())
 }
 
 func newConfig() *Config {
 	return &Config{
-		Config:   *agentsconfig.NewConfig(),
-		Channels: []json.RawMessage{},
+		SharedConfig: SharedConfig(*agentsconfig.NewConfig()),
+		Channels:     []json.RawMessage{},
 	}
 }
