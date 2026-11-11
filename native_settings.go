@@ -70,7 +70,7 @@ func (s *nativeUI) sectionHeader(c *ui.Context, title, detail, kind string) {
 
 func settingsRow(c *ui.Context, key, title, detail string, actions func()) {
 	t := c.Theme()
-	ui.Row(c.Key(key)).Padding(12, 0).Gap(12).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
+	card(ui.Row(c.Key(key)).Padding(12, 16).Gap(12).AlignItems(ui.Center), t).Children(func() {
 		ui.Column(c).Grow(1).MinWidth(0).Gap(4).Children(func() {
 			ui.Text(c, title).Bold().FontSize(14)
 			if detail != "" {
@@ -139,7 +139,7 @@ func (s *nativeUI) providersView(c *ui.Context) {
 		if provider.APIKey != "" {
 			keyStatus = "Key configured"
 		}
-		settingsRow(c, id, id, provider.Type+" · "+provider.APIBase+" · "+keyStatus, func() {
+		settingsRow(c, id, id, joinDetail(provider.Type, provider.APIBase, keyStatus), func() {
 			s.editDelete(c, "Provider", id, func() {
 				s.changeConfig(func(cfg *miyaconfig.Config) error {
 					for _, profile := range cfg.Profiles {
@@ -188,7 +188,7 @@ func (s *nativeUI) mcpView(c *ui.Context) {
 		if server.Type == "" || server.Type == "stdio" {
 			detail = server.Command + " " + strings.Join(server.Args, " ")
 		}
-		settingsRow(c, id, id, server.Type+" · "+detail, func() {
+		settingsRow(c, id, id, joinDetail(server.Type, strings.TrimSpace(detail)), func() {
 			s.editDelete(c, "MCP Server", id, func() { s.changeConfig(func(cfg *miyaconfig.Config) error { delete(cfg.McpServers, id); return nil }) })
 		})
 	}

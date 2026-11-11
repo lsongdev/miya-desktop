@@ -381,3 +381,26 @@ func TestNativeStopCancelsEmbeddedTurn(t *testing.T) {
 		t.Fatal("send action did not return after cancellation")
 	}
 }
+
+// The sidebar hides and comes back, Settings opens from the foot of the
+// session list, and Back to chats returns from it.
+func TestNativeSidebarToggleAndSettingsEntry(t *testing.T) {
+	s := nativeFixture()
+	tt := ui.NewTester(s.view, 1100, 760)
+	nativeClick(t, tt, "Settings")
+	if s.page != "General" || !tt.HasText("Back to chats") {
+		t.Fatalf("Settings did not open: page %q, texts %q", s.page, tt.Texts())
+	}
+	nativeClick(t, tt, "Back to chats")
+	if s.page != "Chat" {
+		t.Fatalf("page after Back to chats = %q", s.page)
+	}
+	nativeClick(t, tt, "Hide sidebar")
+	if !s.sidebarHidden || tt.HasText("New Session") {
+		t.Fatal("sidebar stayed after Hide sidebar")
+	}
+	nativeClick(t, tt, "Show sidebar")
+	if s.sidebarHidden || !tt.HasText("New Session") {
+		t.Fatal("sidebar did not come back")
+	}
+}

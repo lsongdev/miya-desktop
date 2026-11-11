@@ -23,19 +23,19 @@ func (s *nativeUI) chatView(c *ui.Context) {
 	if title == "" {
 		title = "Conversation"
 	}
-	ui.Row(c.Key("chat-header")).Padding(16, 24).Gap(12).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).Children(func() {
-		ui.Column(c).Grow(1).Gap(3).Children(func() {
-			ui.Text(c, title).Bold().FontSize(18)
+	ui.Row(c.Key("chat-header")).Padding(14, 20, 6, 24).Gap(8).AlignItems(ui.Center).Children(func() {
+		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+			ui.Text(c, title).Bold().FontSize(15).SingleLine()
 			detail := conv.Model
 			if detail == "" {
 				detail = s.selectedAgent
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(t.TextMuted)
+			ui.Text(c, detail).FontSize(11).TextColor(t.TextMuted).SingleLine()
 		})
 		if s.sending {
 			ui.Text(c, "Responding…").TextColor(t.Accent).FontSize(12)
 		}
-		if s.selected != "" && ui.Button(c, "Copy conversation").Clicked() {
+		if s.selected != "" && ghostButton(c, "Copy conversation", "Copy conversation").Clicked() {
 			c.Services().WriteClipboard(conversationText(conv))
 		}
 	})
@@ -55,114 +55,148 @@ func (s *nativeUI) chatView(c *ui.Context) {
 	s.timeline.FollowAnimation = &ui.Smooth
 	ui.List(c.Key("timeline:"+s.selected), &s.timeline, len(conv.Messages), func(i int) {
 		s.messageView(c, conv.Messages[i])
-	}).Grow(1).MinHeight(0).Padding(20, 28).Gap(20).Children(func() {
+	}).Grow(1).MinHeight(0).Padding(12, 0).Gap(22).Children(func() {
 		if len(conv.Messages) == 0 {
 			ui.Text(c, "Your conversation will appear here.").TextColor(t.TextMuted).Padding(16)
 		}
 	})
-	ui.Row(c.Key("usage")).Padding(5, 24).Gap(16).Children(func() {
-		if conv.Usage != nil {
-			ui.Textf(c, "Context: %v / %v tokens", conv.Usage.Used, conv.Usage.Size).FontSize(11).TextColor(t.TextMuted)
-		}
-		if conv.Mode != nil {
-			ui.Textf(c, "Mode: %s", conv.Mode.CurrentModeID).FontSize(11).TextColor(t.TextMuted)
-		}
-		if snapshot.StopReason != "" {
-			ui.Text(c, "Stopped: "+snapshot.StopReason).FontSize(11).TextColor(t.TextMuted)
-		}
-	})
-	ui.Column(c.Key("composer")).Padding(12, 24, 16, 24).Gap(8).BorderWidth(1, 0, 0, 0).BorderColor(t.Border).Children(func() {
-		ui.TextArea(c.Key("message"), &s.draft).Label("Message").Placeholder("Message your agent…").
-			Lines(2, 7).Disabled(s.busy || s.sending).OnTextKey(func(k ui.TextKey) bool {
-			if k.Key == ui.KeyEnter && (k.Mods == 0 || k.Mods == ui.Cmd) {
-				text := k.Text()
-				if strings.TrimSpace(text) != "" && !s.busy && !s.sending {
-					s.send(text)
-					k.SetText("")
-				}
-				return true
+	ui.Row(c.Key("usage")).Justify(ui.Center).Padding(4, 28, 6, 28).Children(func() {
+		ui.Row(c).Grow(1).MaxWidth(timelineWidth).Gap(16).Children(func() {
+			if conv.Usage != nil {
+				ui.Textf(c, "Context: %v / %v tokens", conv.Usage.Used, conv.Usage.Size).FontSize(11).TextColor(t.TextMuted)
 			}
-			return false
+			if conv.Mode != nil {
+				ui.Textf(c, "Mode: %s", conv.Mode.CurrentModeID).FontSize(11).TextColor(t.TextMuted)
+			}
+			if snapshot.StopReason != "" {
+				ui.Text(c, "Stopped: "+snapshot.StopReason).FontSize(11).TextColor(t.TextMuted)
+			}
 		})
-		ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Text(c, "Enter to send · Shift+Enter for a new line").FontSize(11).TextColor(t.TextMuted).Grow(1)
-			if s.sending {
-				ui.Button(c, "Stop").Disabled(s.cancelling).OnClick(s.cancel)
-			} else {
-				ui.PrimaryButton(c, "Send").Disabled(s.busy || strings.TrimSpace(s.draft) == "").OnClick(func() { s.send(s.draft) })
-			}
+	})
+	ui.Row(c.Key("composer-row")).Justify(ui.Center).Padding(0, 20, 18, 20).Children(func() {
+		card(ui.Column(c.Key("composer")).Grow(1).MaxWidth(timelineWidth+16).Padding(12, 14, 10, 14).Gap(6), t).
+			BorderWidth(1).BorderColor(t.Border).Children(func() {
+			ui.TextAreaBase(c.Key("message"), &s.draft).Label("Message").Placeholder("Message your agent…").
+				Lines(2, 8).Disabled(s.busy || s.sending).OnTextKey(func(k ui.TextKey) bool {
+				if k.Key == ui.KeyEnter && (k.Mods == 0 || k.Mods == ui.Cmd) {
+					text := k.Text()
+					if strings.TrimSpace(text) != "" && !s.busy && !s.sending {
+						s.send(text)
+						k.SetText("")
+					}
+					return true
+				}
+				return false
+			})
+			ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
+				ui.Text(c, "Enter to send · Shift+Enter for a new line").FontSize(11).TextColor(t.TextMuted).Grow(1)
+				if s.sending {
+					ui.Button(c, "Stop").Radius(10).Disabled(s.cancelling).OnClick(s.cancel)
+				} else {
+					ui.PrimaryButton(c, "Send").Radius(10).Disabled(s.busy || strings.TrimSpace(s.draft) == "").OnClick(func() { s.send(s.draft) })
+				}
+			})
 		})
 	})
 }
 
 func (s *nativeUI) messageView(c *ui.Context, message conversation.Message) {
 	t := c.Theme()
-	ui.Column(c.Key(message.ID)).Gap(7).MinWidth(0).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
-			role := "Miya"
-			if message.Role == conversation.RoleUser {
-				role = "You"
+	user := message.Role == conversation.RoleUser
+	ui.Row(c.Key(message.ID)).Justify(ui.Center).Padding(0, 28).Children(func() {
+		column := ui.Column(c).Grow(1).MinWidth(0).MaxWidth(timelineWidth).Gap(8)
+		if user {
+			column.AlignItems(ui.End)
+		}
+		column.Children(func() {
+			if user {
+				card(ui.Column(c.Key("bubble")).MaxWidth(timelineWidth*0.82).Padding(10, 14).Gap(6), t).Background(t.Accent.Alpha(0.10)).
+					Children(func() { s.blocksView(c, message) })
+				return
 			}
-			ui.Text(c, role).Bold().FontSize(12)
-			if message.Status == conversation.MessageStreaming {
-				ui.Text(c, "Streaming").FontSize(11).TextColor(t.Accent)
-			}
-			if message.Status == conversation.MessageFailed {
-				ui.Text(c, "Failed").FontSize(11).TextColor(t.Danger)
-			}
-			ui.Spacer(c)
-			if ui.Button(c, "Copy").Label("Copy message " + message.ID).FontSize(10).Clicked() {
-				c.Services().WriteClipboard(messageText(message))
-			}
-		})
-		for _, block := range message.Blocks {
-			block := block
-			ui.Column(c.Key(block.ID)).MinWidth(0).Gap(5).Children(func() {
-				switch block.Type {
-				case conversation.BlockText:
-					ui.Text(c, block.Content).Selectable()
-				case conversation.BlockMarkdown:
-					if message.Status == conversation.MessageStreaming {
-						markdown.Stream(c, block.Content, &s.md)
-					} else {
-						markdown.View(c, block.Content, &s.md)
-					}
-				case conversation.BlockThought:
-					open := s.expanded[block.ID]
-					if ui.Collapsible(c, "Thoughts", &open, func() { ui.Text(c, block.Content).Selectable().TextColor(t.TextMuted) }).Changed() {
-						s.expanded[block.ID] = open
-					}
-				case conversation.BlockToolCall:
-					s.toolView(c, block)
-				case conversation.BlockPlan:
-					if block.Plan != nil {
-						ui.Text(c, "Plan").Bold().FontSize(12)
-						for i, entry := range block.Plan.Entries {
-							ui.Row(c.Key(i)).Gap(8).Children(func() {
-								status := "○"
-								if entry.Status == "completed" {
-									status = "✓"
-								} else if entry.Status == "in_progress" {
-									status = "●"
-								}
-								ui.Text(c, status).TextColor(t.Accent)
-								ui.Text(c, entry.Content).Selectable().Grow(1)
-								ui.Text(c, string(entry.Status)).FontSize(10).TextColor(t.TextMuted)
-							})
-						}
-					}
-				case conversation.BlockImage, conversation.BlockAudio, conversation.BlockResource:
-					s.attachmentView(c, block)
-				case conversation.BlockError:
-					ui.Text(c, block.Content).TextColor(t.Danger).Selectable()
-				default:
-					if block.Content != "" {
-						ui.Text(c, block.Content).Selectable()
-					}
+			ui.Row(c.Key("who")).AlignItems(ui.Center).Gap(8).Children(func() {
+				ui.Text(c, "Miya").Bold().FontSize(12)
+				if message.Status == conversation.MessageStreaming {
+					ui.Text(c, "Streaming").FontSize(11).TextColor(t.Accent)
+				}
+				if message.Status == conversation.MessageFailed {
+					ui.Text(c, "Failed").FontSize(11).TextColor(t.Danger)
+				}
+				ui.Spacer(c)
+				if ghostButton(c, "Copy", "Copy message "+message.ID).Clicked() {
+					c.Services().WriteClipboard(messageText(message))
 				}
 			})
-		}
+			s.blocksView(c, message)
+		})
 	})
+}
+
+// blocksView lays out the blocks of a message: text, thoughts, tool calls,
+// plans and attachments.
+func (s *nativeUI) blocksView(c *ui.Context, message conversation.Message) {
+	t := c.Theme()
+	for _, block := range message.Blocks {
+		block := block
+		ui.Column(c.Key(block.ID)).MinWidth(0).Gap(5).Children(func() {
+			switch block.Type {
+			case conversation.BlockText:
+				ui.Text(c, block.Content).Selectable()
+			case conversation.BlockMarkdown:
+				if message.Status == conversation.MessageStreaming {
+					markdown.Stream(c, block.Content, &s.md)
+				} else {
+					markdown.View(c, block.Content, &s.md)
+				}
+			case conversation.BlockThought:
+				open := s.expanded[block.ID]
+				if ui.Collapsible(c, "Thoughts", &open, func() { ui.Text(c, block.Content).Selectable().TextColor(t.TextMuted) }).Changed() {
+					s.expanded[block.ID] = open
+				}
+			case conversation.BlockToolCall:
+				s.toolView(c, block)
+			case conversation.BlockPlan:
+				if block.Plan != nil {
+					done := 0
+					for _, entry := range block.Plan.Entries {
+						if entry.Status == "completed" {
+							done++
+						}
+					}
+					card(ui.Column(c.Key("plan")).Padding(10, 12).Gap(6), t).Children(func() {
+						ui.Row(c).Gap(8).Children(func() {
+							ui.Text(c, "Plan").Bold().FontSize(12).Grow(1)
+							ui.Textf(c, "%d/%d", done, len(block.Plan.Entries)).FontSize(11).TextColor(t.TextMuted)
+						})
+						for i, entry := range block.Plan.Entries {
+							ui.Row(c.Key(i)).Gap(8).Children(func() {
+								status, color := "○", t.TextMuted
+								switch entry.Status {
+								case "completed":
+									status, color = "✓", t.Success
+								case "in_progress":
+									status, color = "●", t.Accent
+								}
+								ui.Text(c, status).TextColor(color)
+								text := ui.Text(c, entry.Content).Selectable().Grow(1)
+								if entry.Status == "completed" {
+									text.TextColor(t.TextMuted)
+								}
+							})
+						}
+					})
+				}
+			case conversation.BlockImage, conversation.BlockAudio, conversation.BlockResource:
+				s.attachmentView(c, block)
+			case conversation.BlockError:
+				ui.Text(c, block.Content).TextColor(t.Danger).Selectable()
+			default:
+				if block.Content != "" {
+					ui.Text(c, block.Content).Selectable()
+				}
+			}
+		})
+	}
 }
 
 func (s *nativeUI) toolView(c *ui.Context, block conversation.Block) {
@@ -171,7 +205,7 @@ func (s *nativeUI) toolView(c *ui.Context, block conversation.Block) {
 	}
 	tool := block.Tool
 	t := c.Theme()
-	ui.Column(c).Padding(10, 12).Gap(6).Background(t.Surface).Radius(6).Children(func() {
+	card(ui.Column(c).Padding(10, 12).Gap(6), t).Children(func() {
 		ui.Row(c).Gap(8).Children(func() {
 			title := tool.Title
 			if title == "" {

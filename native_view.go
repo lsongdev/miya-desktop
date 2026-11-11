@@ -26,10 +26,31 @@ func (s *nativeUI) view(c *ui.Context) {
 	if c.Shortcut(ui.Cmd, ui.KeyComma) {
 		s.page = "General"
 	}
-	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-		ui.Column(c.Key("navigation")).Width(246).Shrink(0).Background(t.Surface).Padding(16, 12).Gap(12).
-			BorderWidth(0, 1, 0, 0).BorderColor(t.Border).Children(func() { s.sidebar(c) })
-		ui.Column(c.Key("workspace")).Grow(1).MinWidth(0).Children(func() {
+	if c.Shortcut(ui.Cmd, ui.KeyB) {
+		s.sidebarHidden = !s.sidebarHidden
+	}
+	// Where the window has a material, the sidebar shows it; elsewhere the
+	// window gets a plain color of its own.
+	root := ui.Row(c).Fill().AlignItems(ui.Stretch)
+	if c.Vibrancy() {
+		c.Root().Background(ui.Transparent)
+	} else {
+		root.Background(gutterColor(t))
+	}
+	root.Children(func() {
+		if !s.sidebarHidden {
+			ui.Column(c.Key("navigation")).Width(sidebarWidth).Shrink(0).Padding(12, 12, 12, 12).Gap(8).DragWindow().
+				Children(func() { s.sidebar(c) })
+		}
+		island(ui.Column(c.Key("workspace")).Grow(1).MinWidth(0).Background(t.Background).
+			Margin(islandGap, islandGap, islandGap, workspaceLeft(s.sidebarHidden)), t).Children(func() {
+			if s.sidebarHidden {
+				ui.Row(c.Key("workspace-bar")).Height(40).Shrink(0).AlignItems(ui.Center).Padding(0, 8, 0, max(c.TitleBar().Left-islandGap, 8)).DragWindow().Children(func() {
+					if iconButton(c.Key("show-sidebar"), iconSidebar, 16, "Show sidebar").Clicked() {
+						s.sidebarHidden = false
+					}
+				})
+			}
 			if s.err != "" {
 				ui.Row(c.Key("error")).Padding(10, 18).Gap(8).Background(t.Danger.Alpha(0.08)).Children(func() {
 					ui.Text(c, s.err).TextColor(t.Danger).Grow(1).Selectable()
@@ -84,28 +105,26 @@ func (s *nativeUI) view(c *ui.Context) {
 
 func (s *nativeUI) sidebar(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).Gap(10).AlignItems(ui.Center).Padding(4).Children(func() {
-		if s.logo != nil {
-			ui.Image(c, s.logo).Size(32, 32).Radius(8)
+	// Level with the window buttons, which sit over the top of the sidebar.
+	ui.Row(c.Key("sidebar-bar")).Height(28).Shrink(0).AlignItems(ui.Center).Children(func() {
+		ui.Spacer(c)
+		if iconButton(c.Key("hide-sidebar"), iconSidebar, 16, "Hide sidebar").Clicked() {
+			s.sidebarHidden = true
 		}
-		ui.Text(c, "Miya Desktop").Bold().FontSize(16)
-	})
-	ui.Row(c).Gap(6).Children(func() {
-		ui.Button(c, "Chat").Grow(1).OnClick(func() { s.page = "Chat" })
-		ui.Button(c, "Settings").Grow(1).OnClick(func() { s.page = "General" })
 	})
 	if s.page != "Chat" {
-		ui.Scroll(c.Key("settings-nav")).Grow(1).Gap(3).Children(func() {
+		if navButton(c.Key("back"), iconBack, "Back to chats", false).Clicked() {
+			s.page = "Chat"
+		}
+		ui.Text(c, "SETTINGS").FontSize(10).Bold().TextColor(t.TextMuted).Padding(10, 12, 2, 12)
+		ui.Scroll(c.Key("settings-nav")).Grow(1).Gap(2).Children(func() {
 			for _, page := range settingsPages {
 				page := page
-				button := ui.Button(c.Key(page), page).OnClick(func() {
+				if navButton(c.Key(page), nil, page, s.page == page).Clicked() {
 					s.page, s.registry = page, ""
 					if page == "Skills" {
 						s.loadSkills()
 					}
-				})
-				if s.page == page {
-					button.Background(t.Accent.Alpha(0.12)).TextColor(t.Accent)
 				}
 			}
 		})
@@ -121,9 +140,9 @@ func (s *nativeUI) sidebar(c *ui.Context) {
 	if ui.Select(c.Key("agent"), &s.selectedAgent, options).Label("Agent").Disabled(s.sending || s.busy).Changed() {
 		s.savePreferences()
 	}
-	ui.PrimaryButton(c, "New Session").Label("New Session").Disabled(s.sending || s.busy || len(options) == 0).OnClick(s.newSession)
-	ui.TextInput(c.Key("search"), &s.search).Placeholder("Search sessions").Label("Search sessions")
-	ui.Scroll(c.Key("sessions")).Grow(1).Gap(3).Children(func() {
+	ui.PrimaryButton(c, "New Session").Label("New Session").Height(36).Radius(10).Disabled(s.sending || s.busy || len(options) == 0).OnClick(s.newSession)
+	ui.TextInput(c.Key("search"), &s.search).Placeholder("Search sessions").Label("Search sessions").Radius(10)
+	ui.Scroll(c.Key("sessions")).Grow(1).Gap(2).Children(func() {
 		visible := 0
 		for _, session := range s.sessions {
 			if !strings.Contains(strings.ToLower(session.Title+" "+session.ID+" "+session.AgentName), strings.ToLower(s.search)) {
@@ -136,9 +155,14 @@ func (s *nativeUI) sidebar(c *ui.Context) {
 			ui.Text(c, "No sessions yet").FontSize(12).TextColor(t.TextMuted).Padding(12, 4)
 		}
 	})
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Textf(c, "%d sessions", len(s.sessions)).FontSize(11).TextColor(t.TextMuted).Grow(1)
-		ui.Button(c, "Refresh").Disabled(s.polling).OnClick(s.refreshSessions)
+	// Settings sits under the list of sessions.
+	ui.Row(c.Key("sidebar-foot")).Shrink(0).AlignItems(ui.Center).Gap(4).Children(func() {
+		if navButton(c.Key("settings"), iconSettings, "Settings", false).Grow(1).Clicked() {
+			s.page = "General"
+		}
+		if iconButton(c.Key("refresh"), iconRefresh, 15, "Refresh").Disabled(s.polling).Clicked() {
+			s.refreshSessions()
+		}
 	})
 }
 
@@ -149,18 +173,41 @@ func (s *nativeUI) sessionRow(c *ui.Context, session agent.Session) {
 	if title == "" {
 		title = "Session " + shortID(session.ID)
 	}
-	row := ui.Column(c.Key(key)).Gap(4).Padding(9).Radius(6)
-	if s.selected == key {
-		row.Background(t.Accent.Alpha(0.10))
+	selected := s.selected == key
+	row := ui.Column(c.Key(key)).Padding(7, 10).Gap(2).Radius(10)
+	bg := ui.Transparent
+	switch {
+	case selected:
+		bg = t.Accent.Alpha(0.12)
+	case row.Hovered():
+		bg = t.Text.Alpha(0.06)
 	}
+	row.Background(row.AnimateColor("bg", bg, tintFade))
+	// Close and Delete show for the chosen row and the one under the pointer.
+	showActions := selected || row.Hovered()
 	row.Children(func() {
-		ui.Button(c, title).Label("Open " + title).TextAlign(ui.Start).OnClick(func() { s.openSession(session) }).Disabled(s.sending || s.busy)
-		ui.Row(c).AlignItems(ui.Center).Gap(4).Children(func() {
-			ui.Text(c, session.AgentName).FontSize(10).TextColor(t.TextMuted).Grow(1)
-			ui.Button(c, "Close").FontSize(10).Label("Close " + title).Disabled(s.sending || s.busy).OnClick(func() { s.removeSession(session, false) })
-			ui.Button(c, "Delete").FontSize(10).Label("Delete " + title).Disabled(s.sending || s.busy).OnClick(func() {
+		open := ui.ButtonBase(c.Key("open")).Label("Open " + title).Disabled(s.sending || s.busy).Justify(ui.Start).AlignItems(ui.Center)
+		if open.Clicked() {
+			s.openSession(session)
+		}
+		open.Children(func() {
+			fg := t.Text
+			if selected {
+				fg = t.Accent
+			}
+			ui.Text(c, title).FontSize(13).TextColor(fg).SingleLine()
+		})
+		ui.Row(c.Key("meta")).AlignItems(ui.Center).Gap(2).Children(func() {
+			ui.Text(c, session.AgentName).FontSize(10).TextColor(t.TextMuted).SingleLine().Grow(1)
+			if !showActions {
+				return
+			}
+			if iconButton(c.Key("close"), iconClose, 12, "Close "+title).Disabled(s.sending || s.busy).Clicked() {
+				s.removeSession(session, false)
+			}
+			if iconButton(c.Key("delete"), iconTrash, 12, "Delete "+title).Disabled(s.sending || s.busy).Clicked() {
 				s.ask("Delete conversation?", title+" will be permanently removed from the agent.", func() { s.removeSession(session, true) })
-			})
+			}
 		})
 	})
 }

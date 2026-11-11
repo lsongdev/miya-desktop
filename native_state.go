@@ -34,6 +34,7 @@ type nativeUI struct {
 	agentInfo                                              *agent.AgentInfo
 	sessions                                               []agent.Session
 	selected                                               string
+	sidebarHidden                                          bool
 	conversations                                          map[string]conversation.Snapshot
 	drafts                                                 map[string]string
 	draft, search                                          string

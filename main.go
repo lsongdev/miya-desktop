@@ -71,6 +71,13 @@ func openDesktopWindow(state *nativeUI) {
 		Title: "Miya Desktop", Content: ui.View(state.view),
 		Width: 1100, Height: 760, MinWidth: 860, MinHeight: 600,
 		StateKey: "main-native",
+		// No title bar: the window buttons sit over the translucent sidebar,
+		// level with its sidebar toggle.
+		TitleBarStyle:        mygo.TitleBarHidden,
+		TitleBarHeight:       40,
+		TrafficLightPosition: &mygo.Point{X: 20, Y: 20},
+		Vibrancy:             mygo.VibrancySidebar,
+		BackgroundColor:      "light-dark(#e8e9ee, #0d0d0f)",
 	})
 	state.win, state.dispatch = window, window.Update
 	state.notify = func(note DesktopNotification) {
