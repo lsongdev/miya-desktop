@@ -141,13 +141,11 @@ func TestStoreAddsThoughtAndToolBlocksToAssistantMessage(t *testing.T) {
 	}`))
 	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call",
-		"toolCall": {
-			"toolCallId": "tc-1",
-			"title": "Read",
-			"kind": "read",
-			"status": "pending",
-			"content": []
-		}
+		"toolCallId": "tc-1",
+		"title": "Read",
+		"kind": "read",
+		"status": "pending",
+		"content": []
 	}`))
 
 	msgs := snap.Conversation.Messages
@@ -197,21 +195,17 @@ func TestStoreMergesToolUpdates(t *testing.T) {
 
 	store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call",
-		"toolCall": {
-			"toolCallId": "tc-1",
-			"title": "Read",
-			"kind": "read",
-			"status": "pending",
-			"content": []
-		}
+		"toolCallId": "tc-1",
+		"title": "Read",
+		"kind": "read",
+		"status": "pending",
+		"content": []
 	}`))
 	snap := store.ApplyACPEvent("s1", mustEvent(t, `{
 		"sessionUpdate": "tool_call_update",
-		"toolCallUpdate": {
-			"toolCallId": "tc-1",
-			"status": "completed",
-			"rawOutput": {"ok": true}
-		}
+		"toolCallId": "tc-1",
+		"status": "completed",
+		"rawOutput": {"ok": true}
 	}`))
 
 	tool := snap.Conversation.Messages[0].Blocks[0].Tool

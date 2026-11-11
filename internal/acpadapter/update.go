@@ -40,11 +40,7 @@ func ParseSessionUpdate(update acp.SessionUpdate) (*Event, error) {
 	case "user_message_chunk", "agent_message_chunk":
 		event.Content = contentChunk(update.Content, update.MessageID)
 	case "agent_thought_chunk":
-		thought := update.Thought
-		if thought == "" {
-			thought = update.Content.Text
-		}
-		event.Content = &ContentChunk{Type: "text", Thought: thought}
+		event.Content = &ContentChunk{Type: "text", Thought: update.Content.Text}
 	case "tool_call":
 		event.Tool = update.ToolCall
 	case "tool_call_update":

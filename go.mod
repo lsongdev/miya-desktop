@@ -4,8 +4,8 @@ go 1.27.3
 
 require (
 	github.com/egoist/mygo v0.7.1-0.20261027023711-da3657e7f86a
-	github.com/lsongdev/miya-agents v0.0.0-20261111071702-def4b29f7caa
-	github.com/lsongdev/miya-channels v0.0.0-20261111023017-4bd5ac4fb3c9
+	github.com/lsongdev/miya-agents v0.0.0-20261111083645-16fff4427baf
+	github.com/lsongdev/miya-channels v0.0.0-20261111083936-4cfc033ff482
 )
 
 require (

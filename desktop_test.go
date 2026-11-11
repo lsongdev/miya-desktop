@@ -65,10 +65,10 @@ func TestDesktopStreamingTimelineSnapshots(t *testing.T) {
 	updates := []string{
 		`{"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"Hello "}}`,
 		`{"sessionUpdate":"agent_message_chunk","messageId":"m1","content":{"type":"text","text":"world"}}`,
-		`{"sessionUpdate":"agent_thought_chunk","thought":"Inspecting files"}`,
-		`{"sessionUpdate":"tool_call","toolCall":{"toolCallId":"t1","title":"Read file","status":"in_progress","rawInput":{"path":"main.go"}}}`,
-		`{"sessionUpdate":"tool_call_update","toolCallUpdate":{"toolCallId":"t1","status":"completed","rawOutput":{"text":"package main"}}}`,
-		`{"sessionUpdate":"plan","plan":{"entries":[{"content":"Inspect project","priority":"high","status":"completed"}]}}`,
+		`{"sessionUpdate":"agent_thought_chunk","content":{"type":"text","text":"Inspecting files"}}`,
+		`{"sessionUpdate":"tool_call","toolCallId":"t1","title":"Read file","status":"in_progress","rawInput":{"path":"main.go"}}`,
+		`{"sessionUpdate":"tool_call_update","toolCallId":"t1","status":"completed","rawOutput":{"text":"package main"}}`,
+		`{"sessionUpdate":"plan","entries":[{"content":"Inspect project","priority":"high","status":"completed"}]}`,
 	}
 	state := newNativeUI()
 	for _, wire := range updates {
