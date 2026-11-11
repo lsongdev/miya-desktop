@@ -16,12 +16,12 @@ import (
 )
 
 type configEditor struct {
-	Open                                                                            bool
-	Kind, Original                                                                  string
-	ID, Name, Type, Command, Args, Env, URL, Headers                                string
-	Provider, Model, Workspace, MaxTokens, Temperature, ContextWindow, ContextRatio string
-	APIKey, APIBase, Token, BaseURL, CDNBaseURL, JSON, Description, Prompt          string
-	Enabled                                                                         bool
+	Open                                                                                bool
+	Kind, Original                                                                      string
+	ID, Name, Type, Command, Args, Env, URL, Headers                                    string
+	Provider, Model, Workspace, MaxTokens, Temperature, ContextWindow, CompactThreshold string
+	APIKey, APIBase, Token, BaseURL, CDNBaseURL, JSON, Description, Prompt              string
+	Enabled                                                                             bool
 }
 
 func validConfigID(id string) bool {
@@ -116,7 +116,7 @@ func (s *nativeUI) edit(kind, id string) {
 		if profile := s.config.Profiles[id]; profile != nil {
 			e.Provider, e.Model, e.Workspace = profile.Provider, profile.ModelName, profile.Workspace
 			e.MaxTokens, e.Temperature = strconv.Itoa(profile.MaxTokens), strconv.FormatFloat(profile.Temperature, 'f', -1, 64)
-			e.ContextWindow, e.ContextRatio = strconv.Itoa(profile.ContextWindowTokens), strconv.FormatFloat(profile.ContextWarnRatio, 'f', -1, 64)
+			e.ContextWindow, e.CompactThreshold = strconv.Itoa(profile.ContextWindowTokens), strconv.FormatFloat(profile.CompactThreshold, 'f', -1, 64)
 		}
 	case "MCP Server":
 		if server := s.config.McpServers[id]; server != nil {
@@ -188,7 +188,7 @@ func (s *nativeUI) editorView(c *ui.Context) {
 				field(c, "Max output tokens", &e.MaxTokens, false)
 				field(c, "Temperature", &e.Temperature, false)
 				field(c, "Context window tokens", &e.ContextWindow, false)
-				field(c, "Context warning ratio", &e.ContextRatio, false)
+				field(c, "Compact at (fraction of window)", &e.CompactThreshold, false)
 			case "MCP Server":
 				labeledSelect(c, "Transport", &e.Type, []string{"stdio", "streamablehttp", "sse"})
 				if e.Type == "stdio" {
@@ -329,11 +329,11 @@ func applyEditor(cfg *miyaconfig.Config, e configEditor) error {
 		if profile.Temperature, err = parseDecimal(e.Temperature, "temperature"); err != nil {
 			return err
 		}
-		if profile.ContextWarnRatio, err = parseDecimal(e.ContextRatio, "context warning ratio"); err != nil {
+		if profile.CompactThreshold, err = parseDecimal(e.CompactThreshold, "compaction threshold"); err != nil {
 			return err
 		}
-		if profile.ContextWarnRatio > 1 {
-			return fmt.Errorf("context warning ratio must be between 0 and 1")
+		if profile.CompactThreshold > 1 {
+			return fmt.Errorf("compaction threshold must be between 0 and 1")
 		}
 		if e.Original != "" && e.Original != id {
 			delete(cfg.Profiles, e.Original)

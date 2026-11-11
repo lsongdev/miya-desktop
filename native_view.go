@@ -212,7 +212,7 @@ func (s *nativeUI) initializeWorkspace() {
 		return
 	}
 	cfg.Providers[id] = &miyaconfig.ProviderConfig{Type: "openai", APIBase: base, APIKey: key}
-	cfg.Profiles["default"] = &miyaconfig.ProfileConfig{Provider: id, ModelName: model, Workspace: "~/.miya/workspace", MaxTokens: 8192, ContextWindowTokens: 128000, ContextWarnRatio: 0.9}
+	cfg.Profiles["default"] = &miyaconfig.ProfileConfig{Provider: id, ModelName: model, Workspace: "~/.miya/workspace", MaxTokens: 8192, ContextWindowTokens: 128000, CompactThreshold: 0.8}
 	disabled := false
 	cfg.ChannelsEnabled = &disabled
 	s.task("Initializing workspace…", func() (func(), error) {

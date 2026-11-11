@@ -40,6 +40,8 @@ github.com/lsongdev/miya-agents v0.0.0-20260918035648-edaf3bcd9672 h1:kdAK+Am0bX
 github.com/lsongdev/miya-agents v0.0.0-20260918035648-edaf3bcd9672/go.mod h1:pZepGydNuJcqadVh5SMqP0T65xs+kIiVd+pA6H1+yQ4=
 github.com/lsongdev/miya-agents v0.0.0-20261111061350-d94bf29a8536 h1:ojcPhv2N3lzfjkafBE9CK/CsM05EuKzRmTHfITlc11w=
 github.com/lsongdev/miya-agents v0.0.0-20261111061350-d94bf29a8536/go.mod h1:pZepGydNuJcqadVh5SMqP0T65xs+kIiVd+pA6H1+yQ4=
+github.com/lsongdev/miya-agents v0.0.0-20261111071702-def4b29f7caa h1:Se6Yt30Mh3pDpH7tJM0/HWHQy/5vh35OGUC8Ew/HPoU=
+github.com/lsongdev/miya-agents v0.0.0-20261111071702-def4b29f7caa/go.mod h1:pZepGydNuJcqadVh5SMqP0T65xs+kIiVd+pA6H1+yQ4=
 github.com/lsongdev/miya-channels v0.0.0-20260727074238-a5f90ef15344 h1:ZTjTGLZ2CNAap3qSy5QyQeTpBQzxtU0qpbgFBF5sOWE=
 github.com/lsongdev/miya-channels v0.0.0-20260727074238-a5f90ef15344/go.mod h1:OV5QGkEsnMBOYSnbEqaP3ulANGSmcUNniSJBOnBQwmc=
 github.com/lsongdev/miya-channels v0.0.0-20261111023017-4bd5ac4fb3c9 h1:2fiyPbcU3Nuw9xwAC4Cv9HWjIy6h+CGZkyEchKcus7E=
